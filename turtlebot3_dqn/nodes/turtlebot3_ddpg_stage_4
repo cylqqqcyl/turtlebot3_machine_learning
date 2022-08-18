@@ -47,8 +47,8 @@ TAU = 0.01                  # soft replacement
 MEMORY_CAPACITY = 10000     # size of replay buffer
 BATCH_SIZE = 64             # update batchsize
 
-MAX_EPISODES = 200          # total number of episodes for training
-MAX_EP_STEPS = 200          # total number of steps for each episode
+MAX_EPISODES = 3000          # total number of episodes for training
+MAX_EP_STEPS = 500          # total number of steps for each episode
 TEST_PER_EPISODES = 10      # test the model per episodes
 VAR = 3                     # control exploration
 
@@ -272,6 +272,7 @@ if __name__ == '__main__':
     reward_buffer = []  # 用于记录每个EP的reward，统计变化
     t0 = time.time()  # 统计时间
     for i in range(MAX_EPISODES):
+        done = False
         t1 = time.time()
         s = env.reset()
         ep_reward = 0  # 记录当前EP的reward
@@ -308,12 +309,12 @@ if __name__ == '__main__':
 
             if j == MAX_EP_STEPS - 1 or done:
                 print(
-                    '\rEpisode: {}/{}  | Episode Reward: {:.4f}  | Running Time: {:.4f}'.format(
+                    '\rTrain:Episode: {}/{}  | Episode Reward: {:.4f}  | Running Time: {:.4f}'.format(
                         i, MAX_EPISODES, ep_reward,
                         time.time() - t1
                     )
                 )
-            plt.show()
+            # plt.show()
             if done:
                 break  # collision restart
         result.data = [ep_reward, r]
@@ -326,13 +327,14 @@ if __name__ == '__main__':
             for j in range(MAX_EP_STEPS):
 
                 a = ddpg.choose_action(s)  # 注意，在测试的时候，我们就不需要用正态分布了，直接一个a就可以了。
-                s_, r, done = env.step(a)
+                action = np.argmax(a)
+                s_, r, done = env.step(action)
 
                 s = s_
                 ep_reward += r
                 if j == MAX_EP_STEPS - 1:
                     print(
-                        '\rEpisode: {}/{}  | Episode Reward: {:.4f}  | Running Time: {:.4f}'.format(
+                        '\rTest:Episode: {}/{}  | Episode Reward: {:.4f}  | Running Time: {:.4f}'.format(
                             i, MAX_EPISODES, ep_reward,
                             time.time() - t1
                         )
@@ -340,18 +342,18 @@ if __name__ == '__main__':
 
                     reward_buffer.append(ep_reward)
 
-        if reward_buffer:
-            plt.ion()
-            plt.cla()
-            plt.title('DDPG')
-            plt.plot(np.array(range(len(reward_buffer))) * TEST_PER_EPISODES, reward_buffer)  # plot the episode vt
-            plt.xlabel('episode steps')
-            plt.ylabel('normalized state-action value')
-            plt.ylim(-2000, 0)
-            plt.show()
-            plt.pause(0.1)
-    plt.ioff()
-    plt.show()
+    #     if reward_buffer:
+    #         plt.ion()
+    #         plt.cla()
+    #         plt.title('DDPG')
+    #         plt.plot(np.array(range(len(reward_buffer))) * TEST_PER_EPISODES, reward_buffer)  # plot the episode vt
+    #         plt.xlabel('episode steps')
+    #         plt.ylabel('normalized state-action value')
+    #         plt.ylim(-2000, 0)
+    #         plt.show()
+    #         plt.pause(0.1)
+    # plt.ioff()
+    # plt.show()
     print('\nRunning time: ', time.time() - t0)
     # ddpg.save_ckpt()
 
