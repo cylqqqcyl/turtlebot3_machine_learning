@@ -300,13 +300,13 @@ if __name__ == '__main__':
             s = s_
             ep_reward += r  # 记录当前EP的总reward
 
-            get_action.data = [a, ep_reward, r]
+            get_action.data = [action, ep_reward, r]
             pub_get_action.publish(get_action)
 
             if i % 10 == 0:
                 ddpg.save_ckpt(i)
 
-            if j == MAX_EP_STEPS - 1:
+            if j == MAX_EP_STEPS - 1 or done:
                 print(
                     '\rEpisode: {}/{}  | Episode Reward: {:.4f}  | Running Time: {:.4f}'.format(
                         i, MAX_EPISODES, ep_reward,
@@ -314,7 +314,9 @@ if __name__ == '__main__':
                     )
                 )
             plt.show()
-        result.data = [ep_reward, np.max(ddpg.q_value)]
+            if done:
+                break  # collision restart
+        result.data = [ep_reward, r]
         pub_result.publish(result)
         # test
         if i and not i % TEST_PER_EPISODES:
