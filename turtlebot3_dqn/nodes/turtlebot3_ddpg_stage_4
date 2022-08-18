@@ -100,6 +100,8 @@ class DDPG(object):
 
         self.actor = get_actor([s_dim])
         self.critic = get_critic([s_dim], [a_dim])
+        self.actor.compile(optimizer='adam', loss='mean_squared_error')
+        self.critic.compile(optimizer='adam', loss='mean_squared_error')
         self.actor.summary()
         self.critic.summary()
 
@@ -123,6 +125,9 @@ class DDPG(object):
         self.critic_target = get_critic([None, s_dim], [None, a_dim], name='_target')
         copy_para(self.critic, self.critic_target)
         # self.critic_target.eval()
+
+        self.actor_target.compile(optimizer='adam', loss='mean_squared_error')
+        self.critic_target.compile(optimizer='adam', loss='mean_squared_error')
 
         self.R = tf.keras.layers.Input([None, 1], dtype=tf.float32, name='r')
 
@@ -222,20 +227,20 @@ class DDPG(object):
         if not os.path.exists('model'):
             os.makedirs('model')
         episode_num = str(episode_num)
-        tf.keras.files.save_weights_to_hdf5('model/ddpg_actor_'+episode_num+'.hdf5', self.actor)
-        tf.keras.files.save_weights_to_hdf5('model/ddpg_actor_target_+'+episode_num+'.hdf5', self.actor_target)
-        tf.keras.files.save_weights_to_hdf5('model/ddpg_critic_'+episode_num+'.hdf5', self.critic)
-        tf.keras.files.save_weights_to_hdf5('model/ddpg_critic_target_'+episode_num+'.hdf5', self.critic_target)
+        tf.keras.models.save_model(self.actor, 'model/ddpg_actor_'+episode_num+'.h5')
+        tf.keras.models.save_model(self.actor_target, 'model/ddpg_actor_target_+'+episode_num+'.h5')
+        tf.keras.models.save_model(self.critic, 'model/ddpg_critic_'+episode_num+'.h5')
+        tf.keras.models.save_model(self.critic_target, 'model/ddpg_critic_target_'+episode_num+'.h5')
 
     def load_ckpt(self):
         """
         load trained weights
         :return: None
         """
-        tf.keras.files.load_hdf5_to_weights_in_order('model/ddpg_actor.hdf5', self.actor)
-        tf.keras.files.load_hdf5_to_weights_in_order('model/ddpg_actor_target.hdf5', self.actor_target)
-        tf.keras.files.load_hdf5_to_weights_in_order('model/ddpg_critic.hdf5', self.critic)
-        tf.keras.files.load_hdf5_to_weights_in_order('model/ddpg_critic_target.hdf5', self.critic_target)
+        self.actor = tf.keras.models.load_model('model/ddpg_actor.h5')
+        self.actor_target = tf.keras.models.load_model('model/ddpg_actor_target.h5')
+        self.critic = tf.keras.models.load_model('model/ddpg_critic.h5')
+        self.critic_target = tf.keras.models.load_model('model/ddpg_critic_target.h5')
 
 if __name__ == '__main__':
 
@@ -245,7 +250,7 @@ if __name__ == '__main__':
     result = Float32MultiArray()
     get_action = Float32MultiArray()
 
-    state_size = 24
+    state_size = 28
     action_size = 5
 
     # 初始化环境
@@ -280,9 +285,9 @@ if __name__ == '__main__':
             # 然后进行裁剪
             a = np.clip(np.random.normal(a, VAR), -2, 2)
 
-            a = np.argmax(a)
+            action = np.argmax(a)
             # 与环境进行互动
-            s_, r, done= env.step(a)
+            s_, r, done= env.step(action)
 
             # 保存s，a，r，s_
             ddpg.store_transition(s, a, r / 10, s_)
