@@ -65,7 +65,7 @@ class DDPG(object):
         self.pointer = 0
         self.a_dim, self.s_dim, self.a_bound = a_dim, s_dim, a_bound
 
-        kernal_initializer = tf.random_normal_initializer(mean=0, stddev=0.3)
+        kernel_initializer = tf.random_normal_initializer(mean=0, stddev=0.3)
         bias_initializer = tf.constant_initializer(0.1)
 
         # 建立actor网络，输入s，输出a
@@ -77,8 +77,8 @@ class DDPG(object):
             :return: act
             """
             inputs = tf.keras.layers.Input(input_state_shape, name='A_input')
-            x = tf.keras.layers.Dense(units=30, activation=tf.nn.relu, kernal_initializer=kernal_initializer, bias_initializer=bias_initializer, name='A_l1')(inputs)
-            x = tf.keras.layers.Dense(units=a_dim, activation=tf.nn.tanh, kernal_initializer=kernal_initializer, bias_initializer=bias_initializer, name='A_a')(x)
+            x = tf.keras.layers.Dense(units=30, activation=tf.nn.relu, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer, name='A_l1')(inputs)
+            x = tf.keras.layers.Dense(units=a_dim, activation=tf.nn.tanh, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer, name='A_a')(x)
             # x = tf.keras.layers.Lambda(lambda x: np.array(a_bound) * x)(x)            #注意这里，先用tanh把范围限定在[-1,1]之间，再进行映射
             return tf.keras.models.Model(inputs=inputs, outputs=x, name='Actor' + name)
 
@@ -93,15 +93,15 @@ class DDPG(object):
             """
             s = tf.keras.layers.Input(input_state_shape, name='C_s_input')
             a = tf.keras.layers.Input(input_action_shape, name='C_a_input')
-            x = tf.keras.layers.Concatenate(1)([s, a])
-            x = tf.keras.layers.Dense(units=60, activation=tf.nn.relu, kernal_initializer=kernal_initializer, bias_initializer=bias_initializer, name='C_l1')(x)
-            x = tf.keras.layers.Dense(units=1, kernal_initializer=kernal_initializer, bias_initializer=bias_initializer, name='C_out')(x)
+            x = tf.keras.layers.Concatenate()([s, a])
+            x = tf.keras.layers.Dense(units=60, activation=tf.nn.relu, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer, name='C_l1')(x)
+            x = tf.keras.layers.Dense(units=1, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer, name='C_out')(x)
             return tf.keras.models.Model(inputs=[s, a], outputs=x, name='Critic' + name)
 
         self.actor = get_actor([None, s_dim])
         self.critic = get_critic([None, s_dim], [None, a_dim])
-        self.actor.train()
-        self.critic.train()
+        self.actor.fit()
+        self.critic.fit()
 
         #更新参数，只用于首次赋值，之后就没用了
         def copy_para(from_model, to_model):
