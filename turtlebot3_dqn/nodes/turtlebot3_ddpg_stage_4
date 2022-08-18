@@ -98,10 +98,10 @@ class DDPG(object):
             x = tf.keras.layers.Dense(units=1, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer, name='C_out')(x)
             return tf.keras.models.Model(inputs=[s, a], outputs=x, name='Critic' + name)
 
-        self.actor = get_actor([None, s_dim])
-        self.critic = get_critic([None, s_dim], [None, a_dim])
-        self.actor.fit()
-        self.critic.fit()
+        self.actor = get_actor([s_dim])
+        self.critic = get_critic([s_dim], [a_dim])
+        self.actor.summary()
+        self.critic.summary()
 
         #更新参数，只用于首次赋值，之后就没用了
         def copy_para(from_model, to_model):
@@ -117,20 +117,20 @@ class DDPG(object):
         #建立actor_target网络，并和actor参数一致，不能训练
         self.actor_target = get_actor([None, s_dim], name='_target')
         copy_para(self.actor, self.actor_target)
-        self.actor_target.eval()
+        # self.actor_target.eval()
 
         #建立critic_target网络，并和actor参数一致，不能训练
         self.critic_target = get_critic([None, s_dim], [None, a_dim], name='_target')
         copy_para(self.critic, self.critic_target)
-        self.critic_target.eval()
+        # self.critic_target.eval()
 
-        self.R = tf.keras.layers.Input([None, 1], tf.float32, 'r')
+        self.R = tf.keras.layers.Input([None, 1], dtype=tf.float32, name='r')
 
         #建立ema，滑动平均值
         self.ema = tf.train.ExponentialMovingAverage(decay=1 - TAU)  # soft replacement
 
-        self.actor_opt = tf.optimizers.Adam(LR_A)
-        self.critic_opt = tf.optimizers.Adam(LR_C)
+        self.actor_opt = tf.keras.optimizers.Adam(LR_A)
+        self.critic_opt = tf.keras.optimizers.Adam(LR_C)
 
 
     def ema_update(self):
@@ -150,7 +150,7 @@ class DDPG(object):
         :param s: state
         :return: act
         """
-        return self.actor(np.array([s], dtype=np.float32))[0]
+        return self.actor.predict_on_batch(np.array([s], dtype=np.float32))[0]
 
     def learn(self):
         """
@@ -279,6 +279,8 @@ if __name__ == '__main__':
             # 因为a是均值，所以a的概率是最大的。但a相对其他概率由多大，是靠VAR调整。这里我们其实可以增加更新VAR，动态调整a的确定性
             # 然后进行裁剪
             a = np.clip(np.random.normal(a, VAR), -2, 2)
+
+            a = np.argmax(a)
             # 与环境进行互动
             s_, r, done, info = env.step(a)
 
