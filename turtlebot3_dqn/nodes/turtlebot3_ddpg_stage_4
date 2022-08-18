@@ -245,7 +245,7 @@ if __name__ == '__main__':
     result = Float32MultiArray()
     get_action = Float32MultiArray()
 
-    state_size = 28
+    state_size = 24
     action_size = 5
 
     # 初始化环境
@@ -282,7 +282,7 @@ if __name__ == '__main__':
 
             a = np.argmax(a)
             # 与环境进行互动
-            s_, r, done, info = env.step(a)
+            s_, r, done= env.step(a)
 
             # 保存s，a，r，s_
             ddpg.store_transition(s, a, r / 10, s_)
@@ -319,7 +319,7 @@ if __name__ == '__main__':
             for j in range(MAX_EP_STEPS):
 
                 a = ddpg.choose_action(s)  # 注意，在测试的时候，我们就不需要用正态分布了，直接一个a就可以了。
-                s_, r, done, info = env.step(a)
+                s_, r, done = env.step(a)
 
                 s = s_
                 ep_reward += r
