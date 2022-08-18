@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: UTF-8 -*-
 #################################################################################
 # Copyright 2018 ROBOTIS CO., LTD.
 #
@@ -32,7 +33,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
-import tensorlayer as tl
 
 EPISODES = 3000
 
@@ -65,8 +65,8 @@ class DDPG(object):
         self.pointer = 0
         self.a_dim, self.s_dim, self.a_bound = a_dim, s_dim, a_bound
 
-        W_init = tf.random_normal_initializer(mean=0, stddev=0.3)
-        b_init = tf.constant_initializer(0.1)
+        kernal_initializer = tf.random_normal_initializer(mean=0, stddev=0.3)
+        bias_initializer = tf.constant_initializer(0.1)
 
         # 建立actor网络，输入s，输出a
         def get_actor(input_state_shape, name=''):
@@ -76,11 +76,11 @@ class DDPG(object):
             :param name: name
             :return: act
             """
-            inputs = tl.layers.Input(input_state_shape, name='A_input')
-            x = tl.layers.Dense(n_units=30, act=tf.nn.relu, W_init=W_init, b_init=b_init, name='A_l1')(inputs)
-            x = tl.layers.Dense(n_units=a_dim, act=tf.nn.tanh, W_init=W_init, b_init=b_init, name='A_a')(x)
-            # x = tl.layers.Lambda(lambda x: np.array(a_bound) * x)(x)            #注意这里，先用tanh把范围限定在[-1,1]之间，再进行映射
-            return tl.models.Model(inputs=inputs, outputs=x, name='Actor' + name)
+            inputs = tf.keras.layers.Input(input_state_shape, name='A_input')
+            x = tf.keras.layers.Dense(units=30, activation=tf.nn.relu, kernal_initializer=kernal_initializer, bias_initializer=bias_initializer, name='A_l1')(inputs)
+            x = tf.keras.layers.Dense(units=a_dim, activation=tf.nn.tanh, kernal_initializer=kernal_initializer, bias_initializer=bias_initializer, name='A_a')(x)
+            # x = tf.keras.layers.Lambda(lambda x: np.array(a_bound) * x)(x)            #注意这里，先用tanh把范围限定在[-1,1]之间，再进行映射
+            return tf.keras.models.Model(inputs=inputs, outputs=x, name='Actor' + name)
 
         #建立Critic网络，输入s，a。输出Q值
         def get_critic(input_state_shape, input_action_shape, name=''):
@@ -91,12 +91,12 @@ class DDPG(object):
             :param name: name
             :return: Q value Q(s,a)
             """
-            s = tl.layers.Input(input_state_shape, name='C_s_input')
-            a = tl.layers.Input(input_action_shape, name='C_a_input')
-            x = tl.layers.Concat(1)([s, a])
-            x = tl.layers.Dense(n_units=60, act=tf.nn.relu, W_init=W_init, b_init=b_init, name='C_l1')(x)
-            x = tl.layers.Dense(n_units=1, W_init=W_init, b_init=b_init, name='C_out')(x)
-            return tl.models.Model(inputs=[s, a], outputs=x, name='Critic' + name)
+            s = tf.keras.layers.Input(input_state_shape, name='C_s_input')
+            a = tf.keras.layers.Input(input_action_shape, name='C_a_input')
+            x = tf.keras.layers.Concatenate(1)([s, a])
+            x = tf.keras.layers.Dense(units=60, activation=tf.nn.relu, kernal_initializer=kernal_initializer, bias_initializer=bias_initializer, name='C_l1')(x)
+            x = tf.keras.layers.Dense(units=1, kernal_initializer=kernal_initializer, bias_initializer=bias_initializer, name='C_out')(x)
+            return tf.keras.models.Model(inputs=[s, a], outputs=x, name='Critic' + name)
 
         self.actor = get_actor([None, s_dim])
         self.critic = get_critic([None, s_dim], [None, a_dim])
@@ -124,7 +124,7 @@ class DDPG(object):
         copy_para(self.critic, self.critic_target)
         self.critic_target.eval()
 
-        self.R = tl.layers.Input([None, 1], tf.float32, 'r')
+        self.R = tf.keras.layers.Input([None, 1], tf.float32, 'r')
 
         #建立ema，滑动平均值
         self.ema = tf.train.ExponentialMovingAverage(decay=1 - TAU)  # soft replacement
@@ -221,21 +221,21 @@ class DDPG(object):
         """
         if not os.path.exists('model'):
             os.makedirs('model')
-
-        tl.files.save_weights_to_hdf5(f'model/ddpg_actor_{episode_num}.hdf5', self.actor)
-        tl.files.save_weights_to_hdf5(f'model/ddpg_actor_target_{episode_num}.hdf5', self.actor_target)
-        tl.files.save_weights_to_hdf5(f'model/ddpg_critic_{episode_num}.hdf5', self.critic)
-        tl.files.save_weights_to_hdf5(f'model/ddpg_critic_target_{episode_num}.hdf5', self.critic_target)
+        episode_num = str(episode_num)
+        tf.keras.files.save_weights_to_hdf5('model/ddpg_actor_'+episode_num+'.hdf5', self.actor)
+        tf.keras.files.save_weights_to_hdf5('model/ddpg_actor_target_+'+episode_num+'.hdf5', self.actor_target)
+        tf.keras.files.save_weights_to_hdf5('model/ddpg_critic_'+episode_num+'.hdf5', self.critic)
+        tf.keras.files.save_weights_to_hdf5('model/ddpg_critic_target_'+episode_num+'.hdf5', self.critic_target)
 
     def load_ckpt(self):
         """
         load trained weights
         :return: None
         """
-        tl.files.load_hdf5_to_weights_in_order('model/ddpg_actor.hdf5', self.actor)
-        tl.files.load_hdf5_to_weights_in_order('model/ddpg_actor_target.hdf5', self.actor_target)
-        tl.files.load_hdf5_to_weights_in_order('model/ddpg_critic.hdf5', self.critic)
-        tl.files.load_hdf5_to_weights_in_order('model/ddpg_critic_target.hdf5', self.critic_target)
+        tf.keras.files.load_hdf5_to_weights_in_order('model/ddpg_actor.hdf5', self.actor)
+        tf.keras.files.load_hdf5_to_weights_in_order('model/ddpg_actor_target.hdf5', self.actor_target)
+        tf.keras.files.load_hdf5_to_weights_in_order('model/ddpg_critic.hdf5', self.critic)
+        tf.keras.files.load_hdf5_to_weights_in_order('model/ddpg_critic_target.hdf5', self.critic_target)
 
 if __name__ == '__main__':
 
@@ -254,13 +254,12 @@ if __name__ == '__main__':
     # 定义状态空间，动作空间，动作幅度范围
     s_dim = state_size
     a_dim = action_size
-    a_bound = env.action_space.high
 
     print('s_dim', s_dim)
     print('a_dim', a_dim)
 
     # 用DDPG算法
-    ddpg = DDPG(a_dim, s_dim, a_bound)
+    ddpg = DDPG(a_dim, s_dim)
 
     # 训练部分：
     # train
@@ -305,7 +304,7 @@ if __name__ == '__main__':
                     '\rEpisode: {}/{}  | Episode Reward: {:.4f}  | Running Time: {:.4f}'.format(
                         i, MAX_EPISODES, ep_reward,
                         time.time() - t1
-                    ), end=''
+                    )
                 )
             plt.show()
         result.data = [ep_reward, np.max(ddpg.q_value)]
