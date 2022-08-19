@@ -54,7 +54,7 @@ VAR = 3                     # control exploration
 
 ###############################  DDPG  ####################################
 
-tf.enable_eager_execution()
+# tf.enable_eager_execution()
 class DDPG(object):
     """
     DDPG class
@@ -104,8 +104,8 @@ class DDPG(object):
 
         self.actor = get_actor([s_dim])
         self.critic = get_critic([s_dim], [a_dim])
-        self.actor.compile(optimizer=tf.train.AdamOptimizer(), loss='mean_squared_error')
-        self.critic.compile(optimizer=tf.train.AdamOptimizer(), loss='mean_squared_error')
+        self.actor.compile(optimizer='adam', loss='mean_squared_error')
+        self.critic.compile(optimizer='adam', loss='mean_squared_error')
         self.actor.summary()
         self.critic.summary()
 
@@ -130,16 +130,16 @@ class DDPG(object):
         copy_para(self.critic, self.critic_target)
         # self.critic_target.eval()
 
-        self.actor_target.compile(optimizer=tf.train.AdamOptimizer(), loss='mean_squared_error')
-        self.critic_target.compile(optimizer=tf.train.AdamOptimizer(), loss='mean_squared_error')
+        self.actor_target.compile(optimizer='adam', loss='mean_squared_error')
+        self.critic_target.compile(optimizer='adam', loss='mean_squared_error')
 
         self.R = tf.keras.layers.Input([None, 1], dtype=tf.float32, name='r')
 
         #建立ema，滑动平均值
         self.ema = tf.train.ExponentialMovingAverage(decay=1 - TAU)  # soft replacement
 
-        self.actor_opt = tf.keras.optimizers.Adam(LR_A)
-        self.critic_opt = tf.keras.optimizers.Adam(LR_C)
+        self.actor_opt = tf.contrib.optimizer_v2.AdamOptimizer(LR_A)
+        self.critic_opt = tf.contrib.optimizer_v2.AdamOptimizer(LR_C)
 
 
     def ema_update(self):
@@ -182,8 +182,9 @@ class DDPG(object):
             y = br + GAMMA * q_
             q = self.critic.predict_on_batch([bs, ba])
             td_error = tf.losses.mean_squared_error(y, q)
-        c_grads = tape.gradient(td_error, self.critic.trainable_weights)
-        self.critic_opt.apply_gradients(zip(c_grads, self.critic.trainable_weights))
+
+            c_grads = tape.gradient(td_error, self.critic.trainable_weights)
+            self.critic_opt.apply_gradients(zip(c_grads, self.critic.trainable_weights))
 
         # Actor：
         # Actor的目标就是获取最多Q值的。
@@ -192,8 +193,9 @@ class DDPG(object):
             q = self.critic.predict_on_batch([bs, a])
             self.q_value = q
             a_loss = -tf.reduce_mean(q)  # 【敲黑板】：注意这里用负号，是梯度上升！也就是离目标会越来越远的，就是越来越大。
-        a_grads = tape.gradient(a_loss, self.actor.trainable_weights)
-        self.actor_opt.apply_gradients(zip(a_grads, self.actor.trainable_weights))
+
+            a_grads = tape.gradient(a_loss, self.actor.trainable_weights)
+            self.actor_opt.apply_gradients(zip(a_grads, self.actor.trainable_weights))
 
         self.ema_update()
 
