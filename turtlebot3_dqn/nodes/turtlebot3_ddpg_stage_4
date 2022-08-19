@@ -317,8 +317,10 @@ if __name__ == '__main__':
             # plt.show()
             if done:
                 break  # collision restart
+
         result.data = [ep_reward, r]
         pub_result.publish(result)
+
         # test
         if i and not i % TEST_PER_EPISODES:
             t1 = time.time()
@@ -332,7 +334,7 @@ if __name__ == '__main__':
 
                 s = s_
                 ep_reward += r
-                if j == MAX_EP_STEPS - 1:
+                if j == MAX_EP_STEPS - 1 or done:
                     print(
                         '\rTest:Episode: {}/{}  | Episode Reward: {:.4f}  | Running Time: {:.4f}'.format(
                             i, MAX_EPISODES, ep_reward,
@@ -341,6 +343,9 @@ if __name__ == '__main__':
                     )
 
                     reward_buffer.append(ep_reward)
+
+                if done:
+                    break
 
     #     if reward_buffer:
     #         plt.ion()
