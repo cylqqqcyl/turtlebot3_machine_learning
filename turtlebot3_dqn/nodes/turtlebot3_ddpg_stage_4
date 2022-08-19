@@ -173,10 +173,10 @@ class DDPG(object):
         # Critic更新和DQN很像，不过target不是argmax了，是用critic_target计算出来的。
         # br + GAMMA * q_
         with tf.GradientTape() as tape:
-            a_ = self.actor_target(bs_)
-            q_ = self.critic_target([bs_, a_])
+            a_ = self.actor_target.predict_on_batch(bs_)
+            q_ = self.critic_target.predict_on_batch([bs_, a_])
             y = br + GAMMA * q_
-            q = self.critic([bs, ba])
+            q = self.critic.predict_on_batch([bs, ba])
             td_error = tf.losses.mean_squared_error(y, q)
         c_grads = tape.gradient(td_error, self.critic.trainable_weights)
         self.critic_opt.apply_gradients(zip(c_grads, self.critic.trainable_weights))
@@ -184,8 +184,8 @@ class DDPG(object):
         # Actor：
         # Actor的目标就是获取最多Q值的。
         with tf.GradientTape() as tape:
-            a = self.actor(bs)
-            q = self.critic([bs, a])
+            a = self.actor.predict_on_batch(bs)
+            q = self.critic.predict_on_batch([bs, a])
             self.q_value = q
             a_loss = -tf.reduce_mean(q)  # 【敲黑板】：注意这里用负号，是梯度上升！也就是离目标会越来越远的，就是越来越大。
         a_grads = tape.gradient(a_loss, self.actor.trainable_weights)
