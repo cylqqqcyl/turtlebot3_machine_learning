@@ -59,6 +59,9 @@ class DDPG(object):
     DDPG class
     """
     def __init__(self, a_dim, s_dim, a_bound = 0):
+
+        self.dirPath = os.path.dirname(os.path.realpath(__file__))
+        self.dirPath = self.dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/save_model_ddpg/stage_4_')
         # memory用于储存跑的数据的数组：
         # 保存个数MEMORY_CAPACITY，s_dim * 2 + a_dim + 1：分别是两个state，一个action，和一个reward
         self.memory = np.zeros((MEMORY_CAPACITY, s_dim * 2 + a_dim + 1), dtype=np.float32)
@@ -117,12 +120,12 @@ class DDPG(object):
                 j.assign(i)
 
         #建立actor_target网络，并和actor参数一致，不能训练
-        self.actor_target = get_actor([None, s_dim], name='_target')
+        self.actor_target = get_actor([s_dim], name='_target')
         copy_para(self.actor, self.actor_target)
         # self.actor_target.eval()
 
         #建立critic_target网络，并和actor参数一致，不能训练
-        self.critic_target = get_critic([None, s_dim], [None, a_dim], name='_target')
+        self.critic_target = get_critic([s_dim], [a_dim], name='_target')
         copy_para(self.critic, self.critic_target)
         # self.critic_target.eval()
 
@@ -227,10 +230,10 @@ class DDPG(object):
         if not os.path.exists('model'):
             os.makedirs('model')
         episode_num = str(episode_num)
-        tf.keras.models.save_model(self.actor, 'model/ddpg_actor_'+episode_num+'.h5')
-        tf.keras.models.save_model(self.actor_target, 'model/ddpg_actor_target_+'+episode_num+'.h5')
-        tf.keras.models.save_model(self.critic, 'model/ddpg_critic_'+episode_num+'.h5')
-        tf.keras.models.save_model(self.critic_target, 'model/ddpg_critic_target_'+episode_num+'.h5')
+        self.actor.save(self.dirPath+episode_num+'.h5')
+        self.actor_target.save(self.dirPath+episode_num+'.h5')
+        self.critic.save(self.dirPath+episode_num+'.h5')
+        self.critic_target.save(self.dirPath+episode_num+'.h5')
 
     def load_ckpt(self):
         """
