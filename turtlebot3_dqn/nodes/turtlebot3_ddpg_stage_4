@@ -104,8 +104,8 @@ class DDPG(object):
 
         self.actor = get_actor([s_dim])
         self.critic = get_critic([s_dim], [a_dim])
-        self.actor.compile(optimizer='adam', loss='mean_squared_error')
-        self.critic.compile(optimizer='adam', loss='mean_squared_error')
+        self.actor.compile(optimizer=tf.train.AdamOptimizer(), loss='mean_squared_error')
+        self.critic.compile(optimizer=tf.train.AdamOptimizer(), loss='mean_squared_error')
         self.actor.summary()
         self.critic.summary()
 
@@ -130,8 +130,8 @@ class DDPG(object):
         copy_para(self.critic, self.critic_target)
         # self.critic_target.eval()
 
-        self.actor_target.compile(optimizer='adam', loss='mean_squared_error')
-        self.critic_target.compile(optimizer='adam', loss='mean_squared_error')
+        self.actor_target.compile(optimizer=tf.train.AdamOptimizer(), loss='mean_squared_error')
+        self.critic_target.compile(optimizer=tf.train.AdamOptimizer(), loss='mean_squared_error')
 
         self.R = tf.keras.layers.Input([None, 1], dtype=tf.float32, name='r')
 
