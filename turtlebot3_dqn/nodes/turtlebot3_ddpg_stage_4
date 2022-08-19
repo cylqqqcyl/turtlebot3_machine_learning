@@ -54,6 +54,7 @@ VAR = 3                     # control exploration
 
 ###############################  DDPG  ####################################
 
+tf.enable_eager_execution()
 class DDPG(object):
     """
     DDPG class
