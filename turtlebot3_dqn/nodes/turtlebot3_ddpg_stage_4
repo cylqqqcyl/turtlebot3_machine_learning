@@ -35,221 +35,199 @@ import tensorflow as tf
 
 EPISODES = 3000
 
+"""
+Deep Deterministic Policy Gradient (DDPG), Reinforcement Learning.
+DDPG is Actor Critic based algorithm.
+Pendulum example.
+
+View more on my tutorial page: https://morvanzhou.github.io/tutorials/
+
+Using:
+tensorflow 1.0
+gym 0.8.0
+"""
+
+np.random.seed(1)
+tf.set_random_seed(1)
+
 #####################  hyper parameters  ####################
 
-RANDOMSEED = 1              # random seed
+MAX_EPISODES = 3000
+MAX_EP_STEPS = 500
+LR_A = 0.001    # learning rate for actor
+LR_C = 0.001    # learning rate for critic
+GAMMA = 0.9     # reward discount
+REPLACEMENT = [
+    dict(name='soft', tau=0.01),
+    dict(name='hard', rep_iter_a=600, rep_iter_c=500)
+][0]            # you can try different target replacement strategies
+MEMORY_CAPACITY = 10000
+BATCH_SIZE = 32
 
-LR_A = 0.00025                # learning rate for actor
-LR_C = 0.0005              # learning rate for critic
-GAMMA = 0.9                 # reward discount
-TAU = 0.01                  # soft replacement
-MEMORY_CAPACITY = 10000     # size of replay buffer
-BATCH_SIZE = 64             # update batchsize
+RENDER = False
+OUTPUT_GRAPH = True
+ENV_NAME = 'Pendulum-v0'
 
-MAX_EPISODES = 3000          # total number of episodes for training
-MAX_EP_STEPS = 500          # total number of steps for each episode
-TEST_PER_EPISODES = 10      # test the model per episodes
-VAR = 3                     # control exploration
-
-###############################  DDPG  ####################################
-
-tf.enable_eager_execution()
-class DDPG(object):
-    """
-    DDPG class
-    """
-    def __init__(self, a_dim, s_dim, a_bound = 0):
-
-        self.dirPath = os.path.dirname(os.path.realpath(__file__))
-        self.dirPath = self.dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/save_model_ddpg/stage_4_')
-        # memory用于储存跑的数据的数组：
-        # 保存个数MEMORY_CAPACITY，s_dim * 2 + a_dim + 1：分别是两个state，一个action，和一个reward
-        self.memory = np.zeros((MEMORY_CAPACITY, s_dim * 2 + a_dim + 1), dtype=np.float32)
-        self.pointer = 0
-        self.a_dim, self.s_dim, self.a_bound = a_dim, s_dim, a_bound
-
-        kernel_initializer = tf.random_normal_initializer(mean=0, stddev=0.3)
-        bias_initializer = tf.constant_initializer(0.1)
-
-        # 建立actor网络，输入s，输出a
-        def get_actor(input_state_shape, name=''):
-            """
-            Build actor network
-            :param input_state_shape: state
-            :param name: name
-            :return: act
-            """
-            inputs = tf.keras.layers.Input(input_state_shape, name='A_input')
-            x = tf.keras.layers.Dense(units=30, activation=tf.nn.relu, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer, name='A_l1')(inputs)
-            x = tf.keras.layers.Dense(units=a_dim, activation=tf.nn.tanh, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer, name='A_a')(x)
-            # x = tf.keras.layers.Lambda(lambda x: np.array(a_bound) * x)(x)            #注意这里，先用tanh把范围限定在[-1,1]之间，再进行映射
-            return tf.keras.models.Model(inputs=inputs, outputs=x, name='Actor' + name)
-
-        #建立Critic网络，输入s，a。输出Q值
-        def get_critic(input_state_shape, input_action_shape, name=''):
-            """
-            Build critic network
-            :param input_state_shape: state
-            :param input_action_shape: act
-            :param name: name
-            :return: Q value Q(s,a)
-            """
-            s = tf.keras.layers.Input(input_state_shape, name='C_s_input')
-            a = tf.keras.layers.Input(input_action_shape, name='C_a_input')
-            x = tf.keras.layers.Concatenate()([s, a])
-            x = tf.keras.layers.Dense(units=60, activation=tf.nn.relu, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer, name='C_l1')(x)
-            x = tf.keras.layers.Dense(units=1, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer, name='C_out')(x)
-            return tf.keras.models.Model(inputs=[s, a], outputs=x, name='Critic' + name)
-
-        self.actor_opt = tf.contrib.optimizer_v2.AdamOptimizer(LR_A)
-        self.critic_opt = tf.contrib.optimizer_v2.AdamOptimizer(LR_C)
-
-        self.actor = get_actor([s_dim])
-        self.critic = get_critic([s_dim], [a_dim])
-        self.actor.compile(optimizer=self.actor_opt, loss='mean_squared_error')
-        self.critic.compile(optimizer=self.critic_opt, loss='mean_squared_error')
-        self.actor.summary()
-        self.critic.summary()
-
-        #更新参数，只用于首次赋值，之后就没用了
-        def copy_para(from_model, to_model):
-            """
-            Copy parameters for soft updating
-            :param from_model: latest model
-            :param to_model: target model
-            :return: None
-            """
-            for i, j in zip(from_model.trainable_weights, to_model.trainable_weights):
-                j.assign(i)
-
-        #建立actor_target网络，并和actor参数一致，不能训练
-        self.actor_target = get_actor([s_dim], name='_target')
-        copy_para(self.actor, self.actor_target)
-        # self.actor_target.eval()
-
-        #建立critic_target网络，并和actor参数一致，不能训练
-        self.critic_target = get_critic([s_dim], [a_dim], name='_target')
-        copy_para(self.critic, self.critic_target)
-        # self.critic_target.eval()
-
-        self.actor_target.compile(optimizer=self.actor_opt, loss='mean_squared_error')
-        self.critic_target.compile(optimizer=self.critic_opt, loss='mean_squared_error')
-
-        self.R = tf.keras.layers.Input([None, 1], dtype=tf.float32, name='r')
-
-        #建立ema，滑动平均值
-        self.ema = tf.train.ExponentialMovingAverage(decay=1 - TAU)  # soft replacement
+###############################  Actor  ####################################
 
 
+class Actor(object):
+    def __init__(self, sess, action_dim, learning_rate, replacement):
+        self.sess = sess
+        self.a_dim = action_dim
+        # self.action_bound = action_bound
+        self.lr = learning_rate
+        self.replacement = replacement
+        self.t_replace_counter = 0
 
+        with tf.variable_scope('Actor'):
+            # input s, output a
+            self.a = self._build_net(S, scope='eval_net', trainable=True)
 
-    def ema_update(self):
-        """
-        滑动平均更新
-        """
-        # 其实和之前的硬更新类似，不过在更新赋值之前，用一个ema.average。
-        paras = self.actor.trainable_weights + self.critic.trainable_weights    #获取要更新的参数包括actor和critic的
-        self.ema.apply(paras)                                                   #主要是建立影子参数
-        for i, j in zip(self.actor_target.trainable_weights + self.critic_target.trainable_weights, paras):
-            i.assign(self.ema.average(j))                                       # 用滑动平均赋值
+            # input s_, output a, get a_ for critic
+            self.a_ = self._build_net(S_, scope='target_net', trainable=False)
 
-    # 选择动作，把s带进入，输出a
+        self.e_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Actor/eval_net')
+        self.t_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Actor/target_net')
+
+        if self.replacement['name'] == 'hard':
+            self.t_replace_counter = 0
+            self.hard_replace = [tf.assign(t, e) for t, e in zip(self.t_params, self.e_params)]
+        else:
+            self.soft_replace = [tf.assign(t, (1 - self.replacement['tau']) * t + self.replacement['tau'] * e)
+                                 for t, e in zip(self.t_params, self.e_params)]
+
+    def _build_net(self, s, scope, trainable):
+        with tf.variable_scope(scope):
+            init_w = tf.random_normal_initializer(0., 0.3)
+            init_b = tf.constant_initializer(0.1)
+            net = tf.layers.dense(s, 30, activation=tf.nn.relu,
+                                  kernel_initializer=init_w, bias_initializer=init_b, name='l1',
+                                  trainable=trainable)
+            with tf.variable_scope('a'):
+                actions = tf.layers.dense(net, self.a_dim, activation=tf.nn.tanh, kernel_initializer=init_w,
+                                          bias_initializer=init_b, name='a', trainable=trainable)
+        #         scaled_a = tf.multiply(actions, self.action_bound, name='scaled_a')  # Scale output to -action_bound to action_bound
+        # return scaled_a
+        return actions
+
+    def learn(self, s):   # batch update
+        self.sess.run(self.train_op, feed_dict={S: s})
+
+        if self.replacement['name'] == 'soft':
+            self.sess.run(self.soft_replace)
+        else:
+            if self.t_replace_counter % self.replacement['rep_iter_a'] == 0:
+                self.sess.run(self.hard_replace)
+            self.t_replace_counter += 1
+
     def choose_action(self, s):
-        """
-        Choose action
-        :param s: state
-        :return: act
-        """
-        return self.actor.predict_on_batch(np.array([s], dtype=np.float32))[0]
+        s = s[np.newaxis, :]    # single state
+        return self.sess.run(self.a, feed_dict={S: s})[0]  # single action
 
-    def learn(self):
-        """
-        Update parameters
-        :return: None
-        """
-        indices = np.random.choice(MEMORY_CAPACITY, size=BATCH_SIZE)    #随机BATCH_SIZE个随机数
-        bt = self.memory[indices, :]                    #根据indices，选取数据bt，相当于随机
-        bs = bt[:, :self.s_dim]                         #从bt获得数据s
-        ba = bt[:, self.s_dim:self.s_dim + self.a_dim]  #从bt获得数据a
-        br = bt[:, -self.s_dim - 1:-self.s_dim]         #从bt获得数据r
-        bs_ = bt[:, -self.s_dim:]                       #从bt获得数据s'
+    def add_grad_to_graph(self, a_grads):
+        with tf.variable_scope('policy_grads'):
+            # ys = policy;
+            # xs = policy's parameters;
+            # a_grads = the gradients of the policy to get more Q
+            # tf.gradients will calculate dys/dxs with a initial gradients for ys, so this is dq/da * da/dparams
+            self.policy_grads = tf.gradients(ys=self.a, xs=self.e_params, grad_ys=a_grads)
 
-        # Critic：
-        # Critic更新和DQN很像，不过target不是argmax了，是用critic_target计算出来的。
-        # br + GAMMA * q_
-        with tf.GradientTape() as tape:
-            a_ = self.actor_target.predict_on_batch(bs_)
-            q_ = self.critic_target.predict_on_batch([bs_, a_])
-            y = br + GAMMA * q_
-            q = self.critic.predict_on_batch([bs, ba])
-            td_error = tf.losses.mean_squared_error(y, q)
-        c_grads = tape.gradient(td_error, self.critic.trainable_weights)
-        # c_grads = tf.gradients(td_error, self.critic.trainable_weights)
-        self.critic_opt.apply_gradients(zip(c_grads, self.critic.trainable_weights))
-
-        # Actor：
-        # Actor的目标就是获取最多Q值的。
-        with tf.GradientTape() as tape:
-            a = self.actor.predict_on_batch(bs)
-            q = self.critic.predict_on_batch([bs, a])
-            self.q_value = q
-            a_loss = -tf.reduce_mean(q)  # 【敲黑板】：注意这里用负号，是梯度上升！也就是离目标会越来越远的，就是越来越大。
-        a_grads = tape.gradient(a_loss, self.actor.trainable_weights)
-        # a_grads = tf.gradients(a_loss, self.actor.trainable_weights)
-        self.actor_opt.apply_gradients(zip(a_grads, self.actor.trainable_weights))
-
-        self.ema_update()
+        with tf.variable_scope('A_train'):
+            opt = tf.train.AdamOptimizer(-self.lr)  # (- learning rate) for ascent policy
+            self.train_op = opt.apply_gradients(zip(self.policy_grads, self.e_params))
 
 
-    # 保存s，a，r，s_
+###############################  Critic  ####################################
+
+class Critic(object):
+    def __init__(self, sess, state_dim, action_dim, learning_rate, gamma, replacement, a, a_):
+        self.sess = sess
+        self.s_dim = state_dim
+        self.a_dim = action_dim
+        self.lr = learning_rate
+        self.gamma = gamma
+        self.replacement = replacement
+
+        with tf.variable_scope('Critic'):
+            # Input (s, a), output q
+            self.a = tf.stop_gradient(a)    # stop critic update flows to actor
+            self.q = self._build_net(S, self.a, 'eval_net', trainable=True)
+
+            # Input (s_, a_), output q_ for q_target
+            self.q_ = self._build_net(S_, a_, 'target_net', trainable=False)    # target_q is based on a_ from Actor's target_net
+
+            self.e_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Critic/eval_net')
+            self.t_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Critic/target_net')
+
+        with tf.variable_scope('target_q'):
+            self.target_q = R + self.gamma * self.q_
+
+        with tf.variable_scope('TD_error'):
+            self.loss = tf.reduce_mean(tf.squared_difference(self.target_q, self.q))
+
+        with tf.variable_scope('C_train'):
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+
+        with tf.variable_scope('a_grad'):
+            self.a_grads = tf.gradients(self.q, self.a)[0]   # tensor of gradients of each sample (None, a_dim)
+
+        if self.replacement['name'] == 'hard':
+            self.t_replace_counter = 0
+            self.hard_replacement = [tf.assign(t, e) for t, e in zip(self.t_params, self.e_params)]
+        else:
+            self.soft_replacement = [tf.assign(t, (1 - self.replacement['tau']) * t + self.replacement['tau'] * e)
+                                     for t, e in zip(self.t_params, self.e_params)]
+
+    def _build_net(self, s, a, scope, trainable):
+        with tf.variable_scope(scope):
+            init_w = tf.random_normal_initializer(0., 0.1)
+            init_b = tf.constant_initializer(0.1)
+
+            with tf.variable_scope('l1'):
+                n_l1 = 30
+                w1_s = tf.get_variable('w1_s', [self.s_dim, n_l1], initializer=init_w, trainable=trainable)
+                w1_a = tf.get_variable('w1_a', [self.a_dim, n_l1], initializer=init_w, trainable=trainable)
+                b1 = tf.get_variable('b1', [1, n_l1], initializer=init_b, trainable=trainable)
+                net = tf.nn.relu(tf.matmul(s, w1_s) + tf.matmul(a, w1_a) + b1)
+
+            with tf.variable_scope('q'):
+                q = tf.layers.dense(net, 1, kernel_initializer=init_w, bias_initializer=init_b, trainable=trainable)   # Q(s,a)
+        return q
+
+    def learn(self, s, a, r, s_):
+        self.sess.run(self.train_op, feed_dict={S: s, self.a: a, R: r, S_: s_})
+        if self.replacement['name'] == 'soft':
+            self.sess.run(self.soft_replacement)
+        else:
+            if self.t_replace_counter % self.replacement['rep_iter_c'] == 0:
+                self.sess.run(self.hard_replacement)
+            self.t_replace_counter += 1
+
+
+#####################  Memory  ####################
+
+class Memory(object):
+    def __init__(self, capacity, dims):
+        self.capacity = capacity
+        self.data = np.zeros((capacity, dims))
+        self.pointer = 0
+
     def store_transition(self, s, a, r, s_):
-        """
-        Store data in data buffer
-        :param s: state
-        :param a: act
-        :param r: reward
-        :param s_: next state
-        :return: None
-        """
-        # 整理s，s_,方便直接输入网络计算
-        s = s.astype(np.float32)
-        s_ = s_.astype(np.float32)
-
-        #把s, a, [r], s_横向堆叠
         transition = np.hstack((s, a, [r], s_))
-
-        #pointer是记录了曾经有多少数据进来。
-        #index是记录当前最新进来的数据位置。
-        #所以是一个循环，当MEMORY_CAPACITY满了以后，index就重新在最底开始了
-        index = self.pointer % MEMORY_CAPACITY  # replace the old memory with new memory
-        #把transition，也就是s, a, [r], s_存进去。
-        self.memory[index, :] = transition
+        index = self.pointer % self.capacity  # replace the old memory with new memory
+        self.data[index, :] = transition
         self.pointer += 1
 
-    def save_ckpt(self, episode_num):
-        """
-        save trained weights
-        :return: None
-        """
-        if not os.path.exists('model'):
-            os.makedirs('model')
-        episode_num = str(episode_num)
-        self.actor.save(self.dirPath+episode_num+'.h5')
-        self.actor_target.save(self.dirPath+episode_num+'.h5')
-        self.critic.save(self.dirPath+episode_num+'.h5')
-        self.critic_target.save(self.dirPath+episode_num+'.h5')
-
-    def load_ckpt(self):
-        """
-        load trained weights
-        :return: None
-        """
-        self.actor = tf.keras.models.load_model('model/ddpg_actor.h5')
-        self.actor_target = tf.keras.models.load_model('model/ddpg_actor_target.h5')
-        self.critic = tf.keras.models.load_model('model/ddpg_critic.h5')
-        self.critic_target = tf.keras.models.load_model('model/ddpg_critic_target.h5')
+    def sample(self, n):
+        assert self.pointer >= self.capacity, 'Memory has not been fulfilled'
+        indices = np.random.choice(self.capacity, size=n)
+        return self.data[indices, :]
 
 if __name__ == '__main__':
+
+    dirPath = os.path.dirname(os.path.realpath(__file__))
+    dirPath = dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/save_model_ddpg/stage_4_')
 
     rospy.init_node('turtlebot3_dqn_stage_4')
     pub_result = rospy.Publisher('result', Float32MultiArray, queue_size=5)
@@ -257,187 +235,87 @@ if __name__ == '__main__':
     result = Float32MultiArray()
     get_action = Float32MultiArray()
 
-    state_size = 28
-    action_size = 5
+    state_dim = 28
+    action_dim = 5
 
     # 初始化环境
-    env = Env(action_size)
+    env = Env(action_dim)
 
-    # 定义状态空间，动作空间，动作幅度范围
-    s_dim = state_size
-    a_dim = action_size
+    action_bound = env.action_space.high
 
-    print('s_dim', s_dim)
-    print('a_dim', a_dim)
+    # all placeholder for tf
+    with tf.name_scope('S'):
+        S = tf.placeholder(tf.float32, shape=[None, state_dim], name='s')
+    with tf.name_scope('R'):
+        R = tf.placeholder(tf.float32, [None, 1], name='r')
+    with tf.name_scope('S_'):
+        S_ = tf.placeholder(tf.float32, shape=[None, state_dim], name='s_')
 
-    # 用DDPG算法
-    ddpg = DDPG(a_dim, s_dim)
 
-    # 训练部分：
-    # train
+    sess = tf.Session()
+    saver = tf.train.Saver()
 
-    reward_buffer = []  # 用于记录每个EP的reward，统计变化
-    t0 = time.time()  # 统计时间
+    # Create actor and critic.
+    # They are actually connected to each other, details can be seen in tensorboard or in this picture:
+    actor = Actor(sess, action_dim, LR_A, REPLACEMENT)
+    critic = Critic(sess, state_dim, action_dim, LR_C, GAMMA, REPLACEMENT, actor.a, actor.a_)
+    actor.add_grad_to_graph(critic.a_grads)
+
+    sess.run(tf.global_variables_initializer())
+
+    M = Memory(MEMORY_CAPACITY, dims=2 * state_dim + action_dim + 1)
+
+    if OUTPUT_GRAPH:
+        tf.summary.FileWriter("logs/", sess.graph)
+
+    var = 3  # control exploration
+
+    t1 = time.time()
     for i in range(MAX_EPISODES):
-        done = False
-        t1 = time.time()
         s = env.reset()
-        ep_reward = 0  # 记录当前EP的reward
+        ep_reward = 0
+
         for j in range(MAX_EP_STEPS):
+
+            # if RENDER:
+            #     env.render()
+
             # Add exploration noise
-            a = ddpg.choose_action(s)  # 这里很简单，直接用actor估算出a动作
-
-            # 为了能保持开发，这里用了另外一种方式增加探索。
-            # 因此需要需要以a为均值，VAR为标准差，建立正态分布，再从正态分布采样出a
-            # 因为a是均值，所以a的概率是最大的。但a相对其他概率由多大，是靠VAR调整。这里我们其实可以增加更新VAR，动态调整a的确定性
-            # 然后进行裁剪
-            a = np.clip(np.random.normal(a, VAR), -2, 2)
-
+            a = actor.choose_action(s)
+            a = np.clip(np.random.normal(a, var), -2, 2)    # add randomness to action selection for exploration
             action = np.argmax(a)
-            # 与环境进行互动
-            s_, r, done= env.step(action)
+            s_, r, done, info = env.step(action)
 
-            # 保存s，a，r，s_
-            ddpg.store_transition(s, a, r / 10, s_)
+            M.store_transition(s, a, r / 10, s_)
 
-            # 第一次数据满了，就可以开始学习
-            ddpg.learn()
-            if ddpg.pointer > MEMORY_CAPACITY:
-                ddpg.learn()
+            if M.pointer > MEMORY_CAPACITY:
+                var *= .9995    # decay the action randomness
+                b_M = M.sample(BATCH_SIZE)
+                b_s = b_M[:, :state_dim]
+                b_a = b_M[:, state_dim: state_dim + action_dim]
+                b_r = b_M[:, -state_dim - 1: -state_dim]
+                b_s_ = b_M[:, -state_dim:]
 
-            # 输出数据记录
+                critic.learn(b_s, b_a, b_r, b_s_)
+                actor.learn(b_s)
+
             s = s_
-            ep_reward += r  # 记录当前EP的总reward
+            ep_reward += r
 
             get_action.data = [action, ep_reward, r]
             pub_get_action.publish(get_action)
 
-            if i % 10 == 0:
-                ddpg.save_ckpt(i)
 
-            if j == MAX_EP_STEPS - 1 or done:
-                print(
-                    '\rTrain:Episode: {}/{}  | Episode Reward: {:.4f}  | Running Time: {:.4f}'.format(
-                        i, MAX_EPISODES, ep_reward,
-                        time.time() - t1
-                    )
-                )
-            # plt.show()
-            if done:
-                break  # collision restart
+            if j == MAX_EP_STEPS-1 or done:
+                print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var, )
+                # if ep_reward > -300:
+                #     RENDER = True
+                break
+
+        if i % 10 == 0:
+            saver.save(sess, dirPath, global_step=i, write_meta_graph=False)
 
         result.data = [ep_reward, r]
         pub_result.publish(result)
 
-        # test
-        # if i and not i % TEST_PER_EPISODES:
-        #     t1 = time.time()
-        #     s = env.reset()
-        #     ep_reward = 0
-        #     for j in range(MAX_EP_STEPS):
-        #
-        #         a = ddpg.choose_action(s)  # 注意，在测试的时候，我们就不需要用正态分布了，直接一个a就可以了。
-        #         action = np.argmax(a)
-        #         s_, r, done = env.step(action)
-        #
-        #         s = s_
-        #         ep_reward += r
-        #         if j == MAX_EP_STEPS - 1 or done:
-        #             print(
-        #                 '\rTest:Episode: {}/{}  | Episode Reward: {:.4f}  | Running Time: {:.4f}'.format(
-        #                     i, MAX_EPISODES, ep_reward,
-        #                     time.time() - t1
-        #                 )
-        #             )
-        #
-        #             reward_buffer.append(ep_reward)
-        #
-        #         if done:
-        #             break
-
-    #     if reward_buffer:
-    #         plt.ion()
-    #         plt.cla()
-    #         plt.title('DDPG')
-    #         plt.plot(np.array(range(len(reward_buffer))) * TEST_PER_EPISODES, reward_buffer)  # plot the episode vt
-    #         plt.xlabel('episode steps')
-    #         plt.ylabel('normalized state-action value')
-    #         plt.ylim(-2000, 0)
-    #         plt.show()
-    #         plt.pause(0.1)
-    # plt.ioff()
-    # plt.show()
-    print('\nRunning time: ', time.time() - t0)
-    # ddpg.save_ckpt()
-
-    # test
-    # ddpg.load_ckpt()
-    # while True:
-    #     s = env.reset()
-    #     for i in range(MAX_EP_STEPS):
-    #         env.render()
-    #         s, r, done, info = env.step(ddpg.choose_action(s))
-    #         if done:
-    #             break
-
-
-
-
-    # agent = ReinforceAgent(state_size, action_size)
-    # scores, episodes = [], []
-    # global_step = 0
-    # start_time = time.time()
-    #
-    # for e in range(agent.load_episode + 1, EPISODES):
-    #     done = False
-    #     state = env.reset()
-    #     score = 0
-    #     for t in range(agent.episode_step):
-    #         action = agent.getAction(state)
-    #
-    #         next_state, reward, done = env.step(action)
-    #
-    #         agent.appendMemory(state, action, reward, next_state, done)
-    #
-    #         if len(agent.memory) >= agent.train_start:
-    #             if global_step <= agent.target_update:
-    #                 agent.trainModel()
-    #             else:
-    #                 agent.trainModel(True)
-    #
-    #         score += reward
-    #         state = next_state
-    #         get_action.data = [action, score, reward]
-    #         pub_get_action.publish(get_action)
-    #
-    #         if e % 10 == 0:
-    #             agent.model.save(agent.dirPath + str(e) + '.h5')
-    #             with open(agent.dirPath + str(e) + '.json', 'w') as outfile:
-    #                 json.dump(param_dictionary, outfile)
-    #
-    #         if t >= 500:
-    #             rospy.loginfo("Time out!!")
-    #             done = True
-    #
-    #         if done:
-    #             result.data = [score, np.max(agent.q_value)]
-    #             pub_result.publish(result)
-    #             agent.updateTargetModel()
-    #             scores.append(score)
-    #             episodes.append(e)
-    #             m, s = divmod(int(time.time() - start_time), 60)
-    #             h, m = divmod(m, 60)
-    #
-    #             rospy.loginfo('Ep: %d score: %.2f memory: %d epsilon: %.2f time: %d:%02d:%02d',
-    #                           e, score, len(agent.memory), agent.epsilon, h, m, s)
-    #             param_keys = ['epsilon']
-    #             param_values = [agent.epsilon]
-    #             param_dictionary = dict(zip(param_keys, param_values))
-    #             break
-    #
-    #         global_step += 1
-    #         if global_step % agent.target_update == 0:
-    #             rospy.loginfo("UPDATE TARGET NETWORK")
-    #
-    #     if agent.epsilon > agent.epsilon_min:
-    #         agent.epsilon *= agent.epsilon_decay
+    print('Running time: ', time.time()-t1)
