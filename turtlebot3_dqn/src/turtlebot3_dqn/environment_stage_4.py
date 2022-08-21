@@ -63,7 +63,7 @@ class Env():
 
         elif heading < -pi:
             heading += 2 * pi
-
+        # 保证heading在正负2pi范围内
         self.heading = round(heading, 2)
 
     def getState(self, scan):
@@ -126,10 +126,27 @@ class Env():
 
         return reward
 
+    def getAngleVel(self): # 限制动作空间引导机器人
+        max_angular_vel = 1.5
+        ang_vel = ((self.action_size - 1) / 2 - action) * max_angular_vel * 0.5
+        if pi/4 > self.heading > -pi/4: # 前
+            pass
+        elif 3*pi/4 > self.heading >= pi/4:
+            ang_vel += 0.75
+        elif -pi/4 >= self.heading > -3*pi/4: #
+            ang_vel += -0.75
+        else: # 后
+            if self.heading >= 3*pi/4:
+                ang_vel += 1.5
+            else:
+                ang_vel += -1.5
+        return ang_vel
+
 
     def step(self, action):
-        max_angular_vel = 1.5
-        ang_vel = ((self.action_size - 1)/2 - action) * max_angular_vel * 0.5
+        # max_angular_vel = 1.5
+        # ang_vel = ((self.action_size - 1)/2 - action) * max_angular_vel * 0.5
+        ang_vel = self.getAngleVel()
 
         vel_cmd = Twist()
         vel_cmd.linear.x = 0.15
