@@ -126,7 +126,7 @@ class Env():
 
         return reward
 
-    def getAngleVel(self):  # directional aid
+    def getAngleVel(self, action):  # directional aid
         max_angular_vel = 1.5
         ang_vel = ((self.action_size - 1) / 2 - action) * max_angular_vel * 0.5
         if pi/4 > self.heading > -pi/4:  # front
@@ -146,7 +146,7 @@ class Env():
     def step(self, action):
         # max_angular_vel = 1.5
         # ang_vel = ((self.action_size - 1)/2 - action) * max_angular_vel * 0.5
-        ang_vel = self.getAngleVel()
+        ang_vel = self.getAngleVel(action)
 
         vel_cmd = Twist()
         vel_cmd.linear.x = 0.15
