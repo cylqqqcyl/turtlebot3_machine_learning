@@ -43,6 +43,7 @@ class Env():
         self.unpause_proxy = rospy.ServiceProxy('gazebo/unpause_physics', Empty)
         self.pause_proxy = rospy.ServiceProxy('gazebo/pause_physics', Empty)
         self.respawn_goal = Respawn()
+        self.action_type = 0  # 0:front 1:left 2:right 3:back_l 4:back_r
 
     def getGoalDistace(self):
         goal_distance = round(math.hypot(self.goal_x - self.position.x, self.goal_y - self.position.y), 2)
@@ -97,15 +98,27 @@ class Env():
         current_distance = state[-3]
         heading = state[-4]
 
+        if self.action_type == 0:  #  front
+            offset = pi/4
+        elif self.action_type == 1:  # left
+            offset = 3*pi/4
+        elif self.action_type == 2:  # right
+            offset = -pi/4
+        elif self.action_type == 3:  # back left
+            offset = pi
+        else: #  self.action_type == 4 back right
+            offset = -3*pi / 4
+
         for i in range(5):
-            angle = -pi / 4 + heading + (pi / 8 * i) + pi / 2
+            # angle = -pi / 4 + heading + (pi / 8 * i) + pi / 2
+            angle =  heading + (pi / 8 * i) + offset
             tr = 1 - 4 * math.fabs(0.5 - math.modf(0.25 + 0.5 * angle % (2 * math.pi) / math.pi)[0])
             yaw_reward.append(tr)
 
         distance_rate = 2 ** (current_distance / self.goal_distance)
 
         if obstacle_min_range < 0.5:
-            ob_reward = -5
+            ob_reward = -50
         else:
             ob_reward = 0
 
@@ -133,12 +146,16 @@ class Env():
             pass
         elif 3*pi/4 > self.heading >= pi/4:  # left
             ang_vel += 0.75
+            self.action_type = 1
         elif -pi/4 >= self.heading > -3*pi/4:  # right
             ang_vel += -0.75
+            self.action_type = 2
         else:  # back
             if self.heading >= 3*pi/4:
+                self.action_type = 3
                 ang_vel += 1.5
             else:
+                self.action_type = 4
                 ang_vel += -1.5
         return ang_vel
 
