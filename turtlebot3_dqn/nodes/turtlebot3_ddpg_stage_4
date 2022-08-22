@@ -27,7 +27,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Normal
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
 
 import rospy
 import os
@@ -92,7 +92,7 @@ EXPLORATION_NOISE = 0.1
 MAX_EPISODES = 3000  # num of games
 # print_log = 5
 UPDATE_ITERATION = 200
-
+LOAD_EPISODE = 10
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # env = gym.make(args.env_name)
@@ -145,7 +145,7 @@ class Replay_buffer():
 
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim, max_action=0):
+    def __init__(self, state_dim, action_dim, max_action=2):
         super(Actor, self).__init__()
 
         self.l1 = nn.Linear(state_dim, 400)
@@ -157,7 +157,7 @@ class Actor(nn.Module):
     def forward(self, x):
         x = F.relu(self.l1(x))
         x = F.relu(self.l2(x))
-        # x = self.max_action * torch.tanh(self.l3(x))
+        x = self.max_action * torch.tanh(self.l3(x))
         return x
 
 
@@ -177,7 +177,7 @@ class Critic(nn.Module):
 
 
 class DDPG(object):
-    def __init__(self, state_dim, action_dim, max_action=0):
+    def __init__(self, state_dim, action_dim, max_action=2):
         self.actor = Actor(state_dim, action_dim, max_action).to(device)
         self.actor_target = Actor(state_dim, action_dim, max_action).to(device)
         self.actor_target.load_state_dict(self.actor.state_dict())
@@ -188,7 +188,7 @@ class DDPG(object):
         self.critic_target.load_state_dict(self.critic.state_dict())
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=1e-3)
         self.replay_buffer = Replay_buffer()
-        self.writer = SummaryWriter(directory)
+        # self.writer = SummaryWriter(directory)
 
         self.num_critic_update_iteration = 0
         self.num_actor_update_iteration = 0
@@ -222,7 +222,7 @@ class DDPG(object):
 
             # Compute critic loss
             critic_loss = F.mse_loss(current_Q, target_Q)
-            self.writer.add_scalar('Loss/critic_loss', critic_loss, global_step=self.num_critic_update_iteration)
+            # self.writer.add_scalar('Loss/critic_loss', critic_loss, global_step=self.num_critic_update_iteration)
             # Optimize the critic
             self.critic_optimizer.zero_grad()
             critic_loss.backward()
@@ -230,7 +230,7 @@ class DDPG(object):
 
             # Compute actor loss
             actor_loss = -self.critic(state, self.actor(state)).mean()
-            self.writer.add_scalar('Loss/actor_loss', actor_loss, global_step=self.num_actor_update_iteration)
+            # self.writer.add_scalar('Loss/actor_loss', actor_loss, global_step=self.num_actor_update_iteration)
 
             # Optimize the actor
             self.actor_optimizer.zero_grad()
@@ -295,7 +295,7 @@ if __name__ == '__main__':
                 state = next_state
 
     elif MODE == 'train':
-        if LOAD: agent.load(episode_num)
+        if LOAD: agent.load(LOAD_EPISODE)
         total_step = 0
         for i in range(MAX_EPISODES):
             total_reward = 0
@@ -303,8 +303,9 @@ if __name__ == '__main__':
             state = env.reset()
             for t in count():
                 action = agent.select_action(state)
-                action = (action + np.random.normal(0, EXPLORATION_NOISE, size=5)).clip(
-                    -2, 2)
+                # print action
+                action = np.clip(np.random.normal(action, EXPLORATION_NOISE), -2, 2)
+
                 a = np.argmax(action)
                 next_state, reward, done = env.step(a)
                 # if args.render and i >= args.render_interval: env.render()
