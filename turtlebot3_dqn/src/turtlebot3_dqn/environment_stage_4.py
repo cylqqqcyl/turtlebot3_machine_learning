@@ -105,14 +105,14 @@ class Env():
         elif self.action_type == 2:  # right
             offset = -pi/4
         elif self.action_type == 3:  # back left
-            offset = pi
+            offset = 5*pi / 4
         else: #  self.action_type == 4 back right
             offset = -3*pi / 4
 
         for i in range(5):
             # angle = -pi / 4 + heading + (pi / 8 * i) + pi / 2
             angle = heading + (pi / 8 * i) + offset
-            tr = 1 - 4 * math.fabs(0.5 - math.modf(0.25 + 0.5 * angle % (2 * math.pi) / math.pi)[0])
+            tr = 1 - 4 * math.fabs(0.5 - (0.25 + 0.5 * angle % (2 * math.pi) / math.pi))
             yaw_reward.append(tr)
 
         distance_rate = 2 ** (current_distance/self.goal_distance)
