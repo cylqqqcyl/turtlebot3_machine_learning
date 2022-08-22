@@ -97,7 +97,7 @@ class Env():
         obstacle_min_range = state[-2]
         current_distance = state[-3]
         heading = state[-4]
-        print self.action_type
+        # print self.action_type
         if self.action_type == 0:  #  front
             offset = pi/4
         elif self.action_type == 1:  # left
