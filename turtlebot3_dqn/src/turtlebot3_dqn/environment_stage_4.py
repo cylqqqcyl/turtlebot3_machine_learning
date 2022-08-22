@@ -145,18 +145,18 @@ class Env():
         if pi/4 > self.heading > -pi/4:  # front
             pass
         elif 3*pi/4 > self.heading >= pi/4:  # left
-            ang_vel += 0.8
+            ang_vel += 0.75
             self.action_type = 1
         elif -pi/4 >= self.heading > -3*pi/4:  # right
-            ang_vel += -0.8
+            ang_vel += -0.75
             self.action_type = 2
         else:  # back
             if self.heading >= 3*pi/4:
                 self.action_type = 3
-                ang_vel += 2
+                ang_vel += 1.5
             else:
                 self.action_type = 4
-                ang_vel += -2
+                ang_vel += -1.5
         return ang_vel
 
 
