@@ -22,7 +22,6 @@ from itertools import count
 
 import numpy as np
 
-import gym
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -81,7 +80,7 @@ GAMMA = 0.99  # discounted factor
 CAPACITY = 1000000  # replay buffer size
 BATCH_SIZE = 32  # mini batch size
 # seed = False
-RANDOM＿SEED = 42
+RANDOM_SEED = 42
 # optional parameters
 
 sample_frequency = 2000
@@ -99,8 +98,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # env = gym.make(args.env_name)
 
 # env.seed(RANDOM＿SEED)
-torch.manual_seed(RANDOM＿SEED)
-np.random.seed(RANDOM＿SEED)
+torch.manual_seed(RANDOM_SEED)
+np.random.seed(RANDOM_SEED)
 
 # state_dim = 28
 # action_dim = 5
