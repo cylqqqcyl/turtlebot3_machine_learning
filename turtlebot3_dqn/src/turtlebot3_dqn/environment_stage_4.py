@@ -111,11 +111,11 @@ class Env():
 
         for i in range(5):
             # angle = -pi / 4 + heading + (pi / 8 * i) + pi / 2
-            angle =  heading + (pi / 8 * i) + offset
+            angle = heading + (pi / 8 * i) + offset
             tr = 1 - 4 * math.fabs(0.5 - math.modf(0.25 + 0.5 * angle % (2 * math.pi) / math.pi)[0])
             yaw_reward.append(tr)
 
-        distance_rate = 2 ** (current_distance / self.goal_distance)
+        distance_rate = 2 ** (self.goal_distance/current_distance)
 
         if obstacle_min_range < 0.5:
             ob_reward = -5
