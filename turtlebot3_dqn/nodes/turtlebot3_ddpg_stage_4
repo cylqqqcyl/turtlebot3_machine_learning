@@ -312,13 +312,14 @@ if __name__ == '__main__':
                 agent.replay_buffer.push((state, next_state, action, reward, np.float(done)))
 
                 state = next_state
-                if done:
-                    break
-                step += 1
                 total_reward += reward
 
                 get_action.data = [a, total_reward, reward]
                 pub_get_action.publish(get_action)
+                if done or step >= 500:
+                    break
+
+                step += 1
             total_step += step + 1
             print("Total T:{} Episode: \t{} Total Reward: \t{:0.2f}".format(total_step, i, total_reward))
             agent.update()
