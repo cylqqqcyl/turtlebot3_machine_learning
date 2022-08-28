@@ -117,8 +117,8 @@ class Env():
 
         distance_rate = 2 ** (current_distance/self.goal_distance)
 
-        if obstacle_min_range < 0.5:
-            ob_reward = -5
+        if obstacle_min_range < 0.7:
+            ob_reward = - min(2**(1/obstacle_min_range),50)
         else:
             ob_reward = 0
 
