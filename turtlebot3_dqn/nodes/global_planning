@@ -376,6 +376,36 @@ class pathPlanning():
         self.final_point = self.worldToMap(self.tar_x, self.tar_y)
 
     def sendAstarPath(self):
+        AstarPath = rospy.Publisher("AstarPath", Path, queue_size=15)
+        init_path = Path()
+
+        # 设置发布频率
+        rate = rospy.Rate(200)
+
+        for i in range(len(self.pathList)):
+            init_path.header.stamp = rospy.Time.now()
+            init_path.header.frame_id = "map"
+
+            current_point = PoseStamped()
+            current_point.header.frame_id = "map"
+            current_point.pose.position.x = pixwidth - self.pathList[i][0] * self.resolution
+            current_point.pose.position.y = self.pathList[i][1] * self.resolution - pixheight
+            current_point.pose.position.z = 0
+            # 角度
+            current_point.pose.orientation.x = 0
+            current_point.pose.orientation.y = 0
+            current_point.pose.orientation.z = 0
+            current_point.pose.orientation.w = 1
+
+            init_path.poses.append(current_point)
+            # 发布消息
+            AstarPath.publish(init_path)
+
+            rate.sleep()
+            i += 1
+        time.sleep(0.5)
+
+    def runAstarPath(self):
         for i in range(len(self.pathList)):
             print(self.pathList[i])
             world_path_x = pixwidth - self.pathList[i][0] * self.resolution
