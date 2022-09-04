@@ -84,6 +84,7 @@ class Env():
             self.get_goalbox = True
 
         point_distance = round(math.hypot(point[0] - self.position.x, point[1] - self.position.y), 2)
+        print(point_distance)
         if point_distance < 0.05:
             self.get_point = True
 

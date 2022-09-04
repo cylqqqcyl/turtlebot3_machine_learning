@@ -289,6 +289,7 @@ class pathPlanning():
                       Point(self.final_point[1], self.final_point[0]))
         # 开始寻路
         self.pathList = aStar.start()
+
         # 查误差
         print(self.pathList)
         print("计算之后的终点")
@@ -376,7 +377,10 @@ class pathPlanning():
 
     def sendAstarPath(self):
         for i in range(len(self.pathList)):
-            reward,done = self.env.step(self.pathList[i])
+            print(self.pathList[i])
+            world_path_x = pixwidth - self.pathList[i][0] * self.resolution
+            world_path_y = self.pathList[i][1] * self.resolution - pixheight
+            reward,done = self.env.step((world_path_x,world_path_y))
             if done:
                 break
             elif reward==1000:
