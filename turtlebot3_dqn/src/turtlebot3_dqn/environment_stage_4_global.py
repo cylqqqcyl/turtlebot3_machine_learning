@@ -49,6 +49,7 @@ class Env():
         orientation = odom.pose.pose.orientation
         orientation_list = [orientation.x, orientation.y, orientation.z, orientation.w]
         _, _, yaw = euler_from_quaternion(orientation_list)
+        self.yaw = yaw
 
         goal_angle = math.atan2(self.goal_y - self.position.y, self.goal_x - self.position.x)
 
@@ -111,7 +112,7 @@ class Env():
     def getAngleVel(self, point):  # directional aid
         point_angle = math.atan2(point[1] - self.position.y, point[0] - self.position.x)
 
-        heading = point_angle - yaw
+        heading = point_angle - self.yaw
         if heading > pi:
             heading -= 2 * pi
 
@@ -145,6 +146,8 @@ class Env():
                     pass
             done = self.getState(data,point)
             reward = self.setReward(done)
+            if done:
+                break
 
         return reward, done
 
