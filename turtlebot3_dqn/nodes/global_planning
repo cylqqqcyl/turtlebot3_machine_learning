@@ -11,6 +11,7 @@ from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
+from src.turtlebot3_dqn.environment_stage_4_global import Env
 
 
 # ------------------------    Astar     --------------------------
@@ -229,7 +230,7 @@ def _obstacleMap(map, obsize):
 
 
 class pathPlanning():
-    def __init__(self):
+    def __init__(self,env):
         '''
         起点:[2,2]
         终点:[2,4]
@@ -240,8 +241,9 @@ class pathPlanning():
         '''
 
         # 初始化ROS节点
-        rospy.init_node("Astar_global_path_planning", anonymous=True)
-
+        # rospy.init_node("Astar_global_path_planning", anonymous=True)
+        self.success = False
+        self.env = env
         # 将数据处理成一个矩阵（未知：-1，可通行：0，不可通行：1）
         self.doMap()
         # obsize是膨胀系数，是按照矩阵的距离，而不是真实距离，所以要进行一个换算
@@ -290,6 +292,7 @@ class pathPlanning():
 
         # 发布Astar算法
         self.sendAstarPath()
+
 
     # def obstacleMap(self,obsize):
     #     '''
@@ -341,57 +344,30 @@ class pathPlanning():
         '''
             获取初始坐标点
         '''
-        self.IniPose = rospy.wait_for_message("/amcl_pose", PoseWithCovarianceStamped, timeout=None)
-        self.init_x = self.IniPose.pose.pose.position.x
-        self.init_y = self.IniPose.pose.pose.position.y
+        self.init_x = self.env.position.x
+        self.init_y = self.env.position.y
+
         # 获取对于矩阵中的原始点位置
         self.start_point = self.worldToMap(self.init_x, self.init_y)
-
-        self.init_quaternions_z = self.IniPose.pose.pose.orientation.z
-        self.init_quaternions_w = self.IniPose.pose.pose.orientation.w
 
     def getTarPose(self):
         '''
             获取目标坐标点
         '''
-        self.TarPose = rospy.wait_for_message("/move_base_simple/goal", PoseStamped, timeout=None)
-        self.tar_x = self.TarPose.pose.position.x
-        self.tar_y = self.TarPose.pose.position.y
+        self.tar_x = self.env.goal_x
+        self.tar_y = self.env.goal_y
         self.final_point = self.worldToMap(self.tar_x, self.tar_y)
-        self.tar_quaternions_x = self.TarPose.pose.orientation.x
-        self.tar_quaternions_y = self.TarPose.pose.orientation.y
-        self.tar_quaternions_z = self.TarPose.pose.orientation.z
-        self.tar_quaternions_w = self.TarPose.pose.orientation.w
 
     def sendAstarPath(self):
-        AstarPath = rospy.Publisher("AstarPath", Path, queue_size=15)
-        init_path = Path()
-
-        # 设置发布频率
-        rate = rospy.Rate(200)
 
         for i in range(len(self.pathList)):
-            init_path.header.stamp = rospy.Time.now()
-            init_path.header.frame_id = "map"
-
-            current_point = PoseStamped()
-            current_point.header.frame_id = "map"
-            current_point.pose.position.x = pixwidth - self.pathList[i][0] * self.resolution
-            current_point.pose.position.y = self.pathList[i][1] * self.resolution - pixheight
-            current_point.pose.position.z = 0
-            # 角度
-            current_point.pose.orientation.x = 0
-            current_point.pose.orientation.y = 0
-            current_point.pose.orientation.z = 0
-            current_point.pose.orientation.w = 1
-
-            init_path.poses.append(current_point)
-            # 发布消息
-            AstarPath.publish(init_path)
-
-            rate.sleep()
-            i += 1
-        time.sleep(0.5)
+            reward,done = self.env.step(self.pathList[i])
+            if done:
+                break
+            elif reward==1000:
+                self.success=True
+            else:
+                pass
 
     def worldToMap(self, x, y):
         # 将rviz地图坐标转换为栅格坐标
@@ -400,7 +376,17 @@ class pathPlanning():
         my = (int)(-(-pixheight - y) / self.resolution)
         return [mx, my]
 
+    def get_success(self):
+        return self.success
 
 if __name__ == "__main__":
-    getmap = pathPlanning()
-
+    rospy.init_node("Astar_global_path_planning", anonymous=True)
+    env = Env()
+    iters = 3
+    success = 0
+    for i in range(iters):
+        state = env.reset()
+        getmap = pathPlanning(env)
+        if getmap.get_success():
+            success += 1
+    print('success rate = {}'.format(success/iters))
