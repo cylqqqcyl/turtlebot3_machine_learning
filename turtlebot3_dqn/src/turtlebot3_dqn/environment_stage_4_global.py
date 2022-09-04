@@ -113,12 +113,12 @@ class Env():
 
         heading = point_angle - self.yaw
 
-        # if heading > pi:
-        #     heading -= 2 * pi
-        #
-        # elif heading < -pi:
-        #     heading += 2 * pi
-        # # ensure heading is in [-pi,pi]
+        if heading > pi:
+            heading -= 2 * pi
+
+        elif heading < -pi:
+            heading += 2 * pi
+        # ensure heading is in [-pi,pi]
 
         if abs(heading) > 0.6:
             ang_vel = math.copysign(0.5,heading)
@@ -132,13 +132,14 @@ class Env():
         # max_angular_vel = 1.5
         # ang_vel = ((self.action_size - 1)/2 - action) * max_angular_vel * 0.5
         self.get_point = False
+        reward = 0
         while not self.get_point:
 
             ang_vel = self.getAngleVel(point)
 
             vel_cmd = Twist()
             if abs(ang_vel)==0.5:
-                vel_cmd.linear.x = 0.05
+                vel_cmd.linear.x = 0.01
             else:
                 vel_cmd.linear.x = 0.15
             vel_cmd.angular.z = ang_vel
@@ -151,7 +152,7 @@ class Env():
                 except:
                     pass
             done = self.getState(data,point)
-            reward = self.setReward(done)
+            reward += self.setReward(done)
             if done or self.get_point or self.get_goalbox:
                 break
 
