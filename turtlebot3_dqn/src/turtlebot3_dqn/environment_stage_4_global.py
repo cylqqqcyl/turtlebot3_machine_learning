@@ -103,7 +103,7 @@ class Env():
             self.get_goalbox = False
 
         if self.get_point:
-            rospy.loginfo("Reached Path Point ")
+            rospy.loginfo("Reached Path Point")
             self.pub_cmd_vel.publish(Twist())
             self.get_point = False
         return reward
@@ -166,7 +166,6 @@ class Env():
             self.goal_x, self.goal_y = self.respawn_goal.getPosition()
             self.initGoal = False
 
-
-        done = self.getState(data)
+        done = self.getState(data, (self.goal_x,self.goal_y))
 
         return done
