@@ -341,9 +341,9 @@ class pathPlanning():
         # 列是逆序的，所以要将列顺序
         self.map = self.map[:, ::-1]
 
-        # #查看地图数据存储格式
-        plt.matshow(self.map, cmap=plt.cm.gray)
-        plt.show()
+        # # #查看地图数据存储格式
+        # plt.matshow(self.map, cmap=plt.cm.gray)
+        # plt.show()
 
     def getIniPose(self):
         '''
