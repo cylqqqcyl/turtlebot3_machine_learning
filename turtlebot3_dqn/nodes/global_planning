@@ -252,11 +252,12 @@ class pathPlanning():
         # 将数据处理成一个矩阵（未知：-1，可通行：0，不可通行：1）
         self.doMap()
         # obsize是膨胀系数，是按照矩阵的距离，而不是真实距离，所以要进行一个换算
-        self.obsize = 4  # 15太大了
+        self.obsize = 5  # 15太大了
         print("现在进行地图膨胀")
         ob_time = time.time()
         _obstacleMap(self.map, self.obsize)
         print("膨胀地图所用时间是:{:.3f}".format(time.time() - ob_time))
+        self.map_resize()
 
         # 获取初始位置self.init_x,self.init_y
         self.getIniPose()
@@ -264,14 +265,14 @@ class pathPlanning():
         self.getTarPose()
         print("已接收")
 
-        # print(self.width,self.height)
-        # print("起始点")
-        # print(self.init_x,self.init_y)
-        # print(self.start_point)
-        # print("目标点")
-        # print(self.tar_x,self.tar_y)
-        # print(self.start_point[0])
-        # print(self.final_point)
+        print(self.width,self.height)
+        print("起始点")
+        print(self.init_x,self.init_y)
+        print(self.start_point)
+        print("目标点")
+        print(self.tar_x,self.tar_y)
+        print(self.start_point[0])
+        print(self.final_point)
 
         # #查看是否正确找到起点终点
         # map_test = self.map.copy()
@@ -289,9 +290,10 @@ class pathPlanning():
         # 开始寻路
         self.pathList = aStar.start()
         # 查误差
-        # print("计算之后的终点")
-        # print(pixwidth - self.pathList[-1][0]*self.resolution,self.pathList[-1][1]*self.resolution - pixheight)
-        # print(self.worldToMap(pixwidth - self.pathList[-1][0]*self.resolution,self.pathList[-1][1]*self.resolution - pixheight))
+        print(self.pathList)
+        print("计算之后的终点")
+        print(pixwidth - self.pathList[-1][0]*self.resolution,self.pathList[-1][1]*self.resolution - pixheight)
+        print(self.worldToMap(pixwidth - self.pathList[-1][0]*self.resolution,self.pathList[-1][1]*self.resolution - pixheight))
 
         print("Astar算法所用时间是:{:.3f}".format(time.time() - s_time))
 
@@ -344,6 +346,15 @@ class pathPlanning():
         # # #查看地图数据存储格式
         # plt.matshow(self.map, cmap=plt.cm.gray)
         # plt.show()
+    def map_resize(self):
+        # resize
+        indexList = np.where(self.map == 1)  # 将地图矩阵中1的位置找到
+        upper_left = (min(indexList[0]), min(indexList[0]))
+        lower_rignt = (max(indexList[0]), max((indexList[1])))
+
+        self.map = self.map[upper_left[0]:lower_rignt[0], upper_left[1]:lower_rignt[1]]
+        plt.matshow(self.map, cmap=plt.cm.gray)
+        plt.show()
 
     def getIniPose(self):
         '''
@@ -376,8 +387,8 @@ class pathPlanning():
     def worldToMap(self, x, y):
         # 将rviz地图坐标转换为栅格坐标
         # 这里10.2和-4.6需要自动添加，目前不知道怎么添加
-        mx = (int)((pixwidth - x) / self.resolution) + 1950
-        my = (int)(-(-pixheight - y) / self.resolution) + 1950
+        mx = (int)((pixwidth - x) / self.resolution)
+        my = (int)(-(-pixheight - y) / self.resolution)
         return [mx, my]
 
     def get_success(self):
