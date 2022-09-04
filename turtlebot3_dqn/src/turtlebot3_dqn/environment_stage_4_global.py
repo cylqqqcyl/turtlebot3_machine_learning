@@ -64,7 +64,6 @@ class Env():
 
     def getState(self, scan, point):
         scan_range = []
-        heading = self.heading
         min_range = 0.13
         done = False
 
@@ -84,7 +83,7 @@ class Env():
             self.get_goalbox = True
 
         point_distance = round(math.hypot(point[0] - self.position.x, point[1] - self.position.y), 2)
-        print(point_distance)
+
         if point_distance < 0.05:
             self.get_point = True
 
@@ -107,22 +106,24 @@ class Env():
         if self.get_point:
             rospy.loginfo("Reached Path Point")
             self.pub_cmd_vel.publish(Twist())
-            self.get_point = False
         return reward
 
     def getAngleVel(self, point):  # directional aid
         point_angle = math.atan2(point[1] - self.position.y, point[0] - self.position.x)
 
         heading = point_angle - self.yaw
-        if heading > pi:
-            heading -= 2 * pi
 
-        elif heading < -pi:
-            heading += 2 * pi
-        # ensure heading is in [-pi,pi]
-        self.heading = round(heading, 2)
+        # if heading > pi:
+        #     heading -= 2 * pi
+        #
+        # elif heading < -pi:
+        #     heading += 2 * pi
+        # # ensure heading is in [-pi,pi]
 
-        ang_vel = heading
+        if abs(heading) > 0.6:
+            ang_vel = math.copysign(0.5,heading)
+        else:
+            ang_vel = math.copysign(0.1,heading)
 
         return ang_vel
 
@@ -130,12 +131,16 @@ class Env():
     def step(self, point):
         # max_angular_vel = 1.5
         # ang_vel = ((self.action_size - 1)/2 - action) * max_angular_vel * 0.5
+        self.get_point = False
         while not self.get_point:
 
             ang_vel = self.getAngleVel(point)
 
             vel_cmd = Twist()
-            vel_cmd.linear.x = 0.15
+            if abs(ang_vel)==0.5:
+                vel_cmd.linear.x = 0.05
+            else:
+                vel_cmd.linear.x = 0.15
             vel_cmd.angular.z = ang_vel
             self.pub_cmd_vel.publish(vel_cmd)
 
@@ -147,7 +152,7 @@ class Env():
                     pass
             done = self.getState(data,point)
             reward = self.setReward(done)
-            if done:
+            if done or self.get_point or self.get_goalbox:
                 break
 
         return reward, done

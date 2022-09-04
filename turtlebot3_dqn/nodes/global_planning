@@ -354,8 +354,8 @@ class pathPlanning():
         lower_rignt = (max(indexList[0]), max((indexList[1])))
 
         self.map = self.map[upper_left[0]:lower_rignt[0], upper_left[1]:lower_rignt[1]]
-        plt.matshow(self.map, cmap=plt.cm.gray)
-        plt.show()
+        # plt.matshow(self.map, cmap=plt.cm.gray)
+        # plt.show()
 
     def getIniPose(self):
         '''
