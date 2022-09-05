@@ -421,7 +421,7 @@ class pathPlanning():
 if __name__ == "__main__":
     rospy.init_node("Astar_global_path_planning", anonymous=True)
     env = Env()
-    iters = 3000
+    iters = 300
     success = 0
     astar_time = 0
     astar_length = 0
