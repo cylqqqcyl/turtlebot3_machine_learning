@@ -397,7 +397,7 @@ class pathPlanning():
         self.pathLength = length
 
     def runAstarPath(self):
-        self.run_time = time.time()
+        t1 = time.time()
         for i in range(len(self.pathList)):
             world_path_x = pixwidth - self.pathList[i][0] * self.resolution
             world_path_y = self.pathList[i][1] * self.resolution - pixheight
@@ -407,7 +407,8 @@ class pathPlanning():
                 break
             else:
                 pass
-        self.run_time -= time.time()
+        t2 = time.time()
+        self.run_time = t2 -t1
 
     def worldToMap(self, x, y):
         # 将rviz地图坐标转换为栅格坐标
@@ -438,4 +439,5 @@ if __name__ == "__main__":
         astar_length += round(getmap.pathLength,3)
         print('current successes rate: {}/{}'.format(success,i+1))
         print('current average runtime: {}/{}'.format(astar_time, i + 1))
+        print('current average path length: {}/{}'.format(astar_length, i + 1))
     print('success rate = {}'.format(success/iters))
