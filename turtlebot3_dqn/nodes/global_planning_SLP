@@ -407,7 +407,7 @@ class pathPlanning():
         '''
 
         # 初始化ROS节点
-        # rospy.init_node("Astar_global_path_planning", anonymous=True)
+        # rospy.init_node("SLP_global_path_planning", anonymous=True)
         self.reward = 0
         self.env = env
         # 将数据处理成一个矩阵（未知：-1，可通行：0，不可通行：1）
@@ -457,12 +457,12 @@ class pathPlanning():
         # print(pixwidth - self.pathList[-1][0]*self.resolution,self.pathList[-1][1]*self.resolution - pixheight)
         # print(self.worldToMap(pixwidth - self.pathList[-1][0]*self.resolution,self.pathList[-1][1]*self.resolution - pixheight))
 
-        print("Astar算法所用时间是:{:.3f}".format(time.time() - s_time))
+        print("SLP算法所用时间是:{:.3f}".format(time.time() - s_time))
         # path length
         self.calPathLen()
 
         # 发布Astar算法
-        self.runAstarPath()
+        self.runSLPPath()
 
 
     # def obstacleMap(self,obsize):
