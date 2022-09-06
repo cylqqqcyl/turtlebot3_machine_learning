@@ -50,7 +50,7 @@ class Point:
     """
 
     def __init__(self, x, y):
-        self.x = x;
+        self.x = x
         self.y = y
 
     def __eq__(self, other):
@@ -210,15 +210,14 @@ class AStar:
 class SLP:
     """SLP is a hybrid path planning algorithm
     """
-    def __init__(self, map2d, s_start, s_goal):
+    def __init__(self, map2d, obs, s_start, s_goal):
         self.s_start = s_start
         self.s_goal = s_goal
-        self.line_slope = math.inf
+        self.line_slope = np.inf
 
         self.map2d = map2d  # class Env
 
-        self.u_set = self.Env.motions  # feasible input set
-        self.obs = self.Env.obs  # position of obstacles
+
 
         self.OPEN = []  # priority queue / OPEN set
         self.CLOSED = []  # CLOSED set / VISITED order
@@ -226,9 +225,11 @@ class SLP:
         self.g = dict()  # cost to come
         self.astar_sg = [] # astar start and goal ele:[start,goal]
 
+        self.obs = obs
         self.LINEAR_PATH_CALCULATOR()
         self.BASIS_ALGORITHM_PLANNER()
-        self.GENERATE_LINEARIZED_PATH()
+
+        # self.GENERATE_LINEARIZED_PATH()
 
 
     def LINEAR_PATH_CALCULATOR(self):
@@ -237,18 +238,17 @@ class SLP:
         :return: path, intersection_points
         """
         path = [self.s_start]
-        inter = []
         # exclude vertical line case
         if self.s_start[0] - self.s_goal[0] != 0:
             self.line_slope = (self.s_start[1] - self.s_goal[1]) / (self.s_start[0] - self.s_goal[0])
+            dx_delta = math.copysign(1, self.s_goal[0] - self.s_start[0])
             path_dx = 0
             while True:
                 if self.s_start[0] + path_dx == self.s_goal[0]:
                     break
-                path_dx += 1
+                path_dx += dx_delta
                 point = (self.s_start[0] + path_dx, math.ceil(self.s_start[1] + self.line_slope * path_dx))
                 if point in self.obs:
-                    inter.append(point)
                     self.astar_sg.append(
                         [(self.s_start[0] + path_dx - 1, math.ceil(self.s_start[1] + self.line_slope * (path_dx - 1))),
                          (self.s_start[0] + path_dx + 1, math.ceil(self.s_start[1] + self.line_slope * (path_dx + 1)))])
@@ -258,13 +258,14 @@ class SLP:
 
         else:
             path_dy = 0
+            dy_delta = math.copysign(1, self.s_goal[1] - self.s_start[1])
             while True:
                 if self.s_start[1] + path_dy == self.s_goal[1]:
                     break
-                path_dy += 1
+                path_dy += dy_delta
                 point = (self.s_start[0], self.s_start[1] + path_dy)
                 if point in self.obs:
-                    inter.append(point)
+                    pass
                 else:
                     path.append(point)
         path.append(self.s_goal)
@@ -277,8 +278,9 @@ class SLP:
         USING A*
         """
         slp_path = np.array(self.path)
+        print self.astar_sg
         for sg in self.astar_sg:
-            astar = AStar(self.map2d,sg[0], sg[1])
+            astar = AStar(self.map2d,Point(int(sg[0][0]),int(sg[0][1])), Point(int(sg[1][0]),int(sg[1][1])))
             a_path = astar.start()
             a_path = np.array(a_path)
             a_path = a_path[1:-1] # reverse and remove start and goal
@@ -393,6 +395,12 @@ def _obstacleMap(map, obsize):
                     distance = math.sqrt((x - ox) ** 2 + (y - oy) ** 2)
                     if distance <= obsize:
                         map[x][y] = 1
+def getObsMap(map):
+    obs_map = set()
+    indexList = np.where(map == 1)
+    for ox, oy in zip(indexList[0], indexList[1]):
+        obs_map.add((ox,oy))
+    return obs_map
 
 
 class pathPlanning():
@@ -419,7 +427,7 @@ class pathPlanning():
         _obstacleMap(self.map, self.obsize)
         print("膨胀地图所用时间是:{:.3f}".format(time.time() - ob_time))
         self.map_resize()
-
+        obs_map = getObsMap(self.map)
         # 获取初始位置self.init_x,self.init_y
         self.getIniPose()
         # 获取终点位置self.tar_x,self.tar_y
@@ -446,8 +454,8 @@ class pathPlanning():
         s_time = time.time()
         self.map2d = MapMatrix(self.map)
         # 创建AStar对象,并设置起点终点
-        slp = SLP(self.map2d, Point(self.start_point[1], self.start_point[0]),
-                      Point(self.final_point[1], self.final_point[0]))
+        slp = SLP(self.map2d, obs_map,self.start_point,
+                      self.final_point)
         # 开始寻路
         self.pathList = slp.path
 
@@ -462,7 +470,8 @@ class pathPlanning():
         self.calPathLen()
 
         # 发布Astar算法
-        self.runSLPPath()
+        self.plotSLPPath()
+        # self.runSLPPath()
 
 
     # def obstacleMap(self,obsize):
@@ -541,8 +550,8 @@ class pathPlanning():
     def plotSLPPath(self):
         plot_map = self.map.copy()
         for i in range(len(self.pathList)):
-            y = self.pathList[i][0]
-            x = self.pathList[i][1]
+            y = int(self.pathList[i][0])
+            x = int(self.pathList[i][1])
             plot_map[x,y] = 2
         plt.matshow(plot_map, cmap=plt.cm.gray)
         plt.show()
@@ -599,6 +608,6 @@ if __name__ == "__main__":
         slp_time += round(getmap.run_time,3)
         slp_length += round(getmap.pathLength,3)
         print('current successes rate: {}/{}'.format(success,i+1))
-        print('current average runtime: {}/{}'.format(astar_time, i + 1))
-        print('current average path length: {}/{}'.format(astar_length, i + 1))
+        print('current average runtime: {}/{}'.format(slp_time, i + 1))
+        print('current average path length: {}/{}'.format(slp_length, i + 1))
     print('success rate = {}'.format(success/iters))

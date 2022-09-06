@@ -42,6 +42,8 @@ catkin_install_python(PROGRAMS
   nodes/turtlebot3_dqn_stage_3
   nodes/turtlebot3_dqn_stage_4
   nodes/turtlebot3_ddpg_stage_4
+  nodes/global_planning
+  nodes/global_planning_SLP
   nodes/result_graph
   nodes/action_graph
   nodes/moving_obstacle
