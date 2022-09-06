@@ -394,7 +394,6 @@ class SLP:
             else:
                 pre_path_len = cur_path_len
 
-
     def is_collision(self, s_start, s_end):
         """
         check if the line segment (s_start, s_end) is collision.
@@ -405,17 +404,39 @@ class SLP:
         if s_start in self.obs or s_end in self.obs:
             return True
 
-        if s_start[0]-s_end[0] != 0:
-            slope = (s_start[1]-s_end[1])/(s_start[0]-s_end[0])
+        if s_start[0] - s_end[0] == 0:
+            path_dy = 0
+            dy_delta = math.copysign(1, s_end[1] - s_start[1])
+
+            while True:
+                if s_start[1] + path_dy == s_end[1]:
+                    break
+                path_dy += dy_delta
+                point = (s_start[0], s_start[1] + path_dy)
+                if point in self.obs:
+                    return True
+        elif s_start[1] - s_end[1] == 0:
             path_dx = 0
-            dx_delta = math.copysign(1, s_end[0]-s_start[0])
+            dx_delta = math.copysign(1, s_end[0] - s_start[0])
 
             while True:
                 if s_start[0] + path_dx == s_end[0]:
                     break
                 path_dx += dx_delta
-                ceil_point = (s_start[0] + path_dx, math.ceil(s_start[1] + slope*path_dx))
-                floor_point = (s_start[0] + path_dx, math.floor(s_start[1] + slope*path_dx))
+                point = (s_start[0] + path_dx, s_start[1])
+                if point in self.obs:
+                    return True
+        else:
+            slope = (s_start[1] - s_end[1]) / (s_start[0] - s_end[0])
+            path_dx = 0
+            dx_delta = math.copysign(1, s_end[0] - s_start[0])
+
+            while True:
+                if s_start[0] + path_dx == s_end[0]:
+                    break
+                path_dx += dx_delta
+                ceil_point = (s_start[0] + path_dx, math.ceil(s_start[1] + slope * path_dx))
+                floor_point = (s_start[0] + path_dx, math.floor(s_start[1] + slope * path_dx))
                 if ceil_point in self.obs or floor_point in self.obs:
                     # print("collided at {} or {}".format(ceil_point,floor_point))
                     return True
