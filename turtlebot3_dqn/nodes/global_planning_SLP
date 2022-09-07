@@ -230,6 +230,10 @@ class SLP:
         self.LINEAR_PATH_CALCULATOR()
         self.BASIS_ALGORITHM_PLANNER()
 
+        for point in self.path:
+            if (point[1],point[0]) in self.obs:
+                print('obs in path')
+
         self.GENERATE_LINEARIZED_PATH()
         print self.path
 
@@ -362,8 +366,8 @@ class SLP:
             #     if self.is_collision(tuple(path[i]), tuple(path[j])):
             #         linearized_path.append(path[pre])
             #     break
-            if self.is_collision(tuple(self.path[i]), tuple(self.path[j])):
-                print("{} and {} collide".format(self.path[i],self.path[j]))
+            if self.is_collision((self.path[i][1],self.path[i][0]), (self.path[j][1],self.path[j][0])):
+                # print("{} and {} collide".format(self.path[i],self.path[j]))
                 linearized_path.append(self.path[pre])
                 if j == 0:
                     break
@@ -417,7 +421,7 @@ class SLP:
                 path_dy += dy_delta
                 point = (s_start[0], s_start[1] + path_dy)
                 if point in self.obs:
-                    print("collided at {}".format(point))
+                    print("A collided at {}".format(point))
                     return True
         elif s_start[1] - s_end[1] == 0:
             path_dx = 0
@@ -429,7 +433,7 @@ class SLP:
                 path_dx += dx_delta
                 point = (s_start[0] + path_dx, s_start[1])
                 if point in self.obs:
-                    print("collided at {}".format(point))
+                    print("B collided at {}".format(point))
                     return True
         else:
             slope = (s_start[1] - s_end[1]) / (s_start[0] - s_end[0])
