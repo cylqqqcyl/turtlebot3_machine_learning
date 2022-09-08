@@ -1,0 +1,355 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+#################################################################################
+# Copyright 2018 ROBOTIS CO., LTD.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#################################################################################
+
+import argparse
+from itertools import count
+
+import numpy as np
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.distributions import Normal
+# from tensorboardX import SummaryWriter
+
+import rospy
+import os
+import json
+import numpy as np
+import random
+import time
+import sys
+
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+from collections import deque
+from std_msgs.msg import Float32MultiArray
+from src.turtlebot3_dqn.environment_stage_4 import Env
+from src.turtlebot3_dqn.environment_stage_4_astar_ddpg import TestEnv
+EPISODES = 3000
+
+"""
+Deep Deterministic Policy Gradient (DDPG), Reinforcement Learning.
+DDPG is Actor Critic based algorithm.
+Pendulum example.
+
+View more on my tutorial page: https://morvanzhou.github.io/tutorials/
+
+Using:
+tensorflow 1.0
+gym 0.8.0
+"""
+
+np.random.seed(42)
+
+#####################  hyper parameters  ####################
+
+'''
+Implementation of Deep Deterministic Policy Gradients (DDPG) with pytorch 
+riginal paper: https://arxiv.org/abs/1509.02971
+Not the author's implementation !
+'''
+
+MODE = 'test'  # mode = 'train' or 'test'
+# OpenAI gym environment name, # ['BipedalWalker-v2', 'Pendulum-v0'] or any continuous environment
+# Note that DDPG is feasible about hyper-parameters.
+# You should fine-tuning if you change to another environment.
+# env_name = "Pendulum-v0"
+TAU = 0.005  # target smoothing coefficient
+TARGET_UPDATE_INTERVAL= 1
+TEST_ITERATION = 300
+
+learning_rate = 1e-4
+GAMMA = 0.99  # discounted factor
+CAPACITY = 1000000  # replay buffer size
+BATCH_SIZE = 32  # mini batch size
+# seed = False
+RANDOM_SEED = 42
+# optional parameters
+
+sample_frequency = 2000
+# render = False  # show UI or not
+LOG_INTERVAL = 50  #
+LOAD = False  # load model
+render_interval = 100  # after render_interval, the env.render() will work
+EXPLORATION_NOISE = 0.1
+MAX_EPISODES = 3000  # num of games
+# print_log = 5
+UPDATE_ITERATION = 200
+LOAD_EPISODE = 2950
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+# env = gym.make(args.env_name)
+
+# env.seed(RANDOM＿SEED)
+torch.manual_seed(RANDOM_SEED)
+np.random.seed(RANDOM_SEED)
+
+# state_dim = 28
+# action_dim = 5
+# max_action = float(env.action_space.high[0])
+min_Val = torch.tensor(1e-7).float().to(device)  # min value
+
+# directory = './exp' + script_name + args.env_name + './'
+dirPath = os.path.dirname(os.path.realpath(__file__))
+dirPath = dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/save_model_ddpg/stage_4_')
+
+# ------------------------------   DDPG   ---------------------------
+
+class Replay_buffer():
+    '''
+    Code based on:
+    https://github.com/openai/baselines/blob/master/baselines/deepq/replay_buffer.py
+    Expects tuples of (state, next_state, action, reward, done)
+    '''
+
+    def __init__(self, max_size=CAPACITY):
+        self.storage = []
+        self.max_size = max_size
+        self.ptr = 0
+
+    def push(self, data):
+        if len(self.storage) == self.max_size:
+            self.storage[int(self.ptr)] = data
+            self.ptr = (self.ptr + 1) % self.max_size
+        else:
+            self.storage.append(data)
+
+    def sample(self, batch_size):
+        ind = np.random.randint(0, len(self.storage), size=batch_size)
+        x, y, u, r, d = [], [], [], [], []
+
+        for i in ind:
+            X, Y, U, R, D = self.storage[i]
+            x.append(np.array(X, copy=False))
+            y.append(np.array(Y, copy=False))
+            u.append(np.array(U, copy=False))
+            r.append(np.array(R, copy=False))
+            d.append(np.array(D, copy=False))
+
+        return np.array(x), np.array(y), np.array(u), np.array(r).reshape(-1, 1), np.array(d).reshape(-1, 1)
+
+
+class Actor(nn.Module):
+    def __init__(self, state_dim, action_dim, max_action=2):
+        super(Actor, self).__init__()
+
+        self.l1 = nn.Linear(state_dim, 400)
+        self.l2 = nn.Linear(400, 300)
+        self.l3 = nn.Linear(300, action_dim)
+
+        self.max_action = max_action
+
+    def forward(self, x):
+        x = F.relu(self.l1(x))
+        x = F.relu(self.l2(x))
+        x = self.max_action * torch.tanh(self.l3(x))
+        return x
+
+
+class Critic(nn.Module):
+    def __init__(self, state_dim, action_dim):
+        super(Critic, self).__init__()
+
+        self.l1 = nn.Linear(state_dim + action_dim, 400)
+        self.l2 = nn.Linear(400, 300)
+        self.l3 = nn.Linear(300, 1)
+
+    def forward(self, x, u):
+        x = F.relu(self.l1(torch.cat([x, u], 1)))
+        x = F.relu(self.l2(x))
+        x = self.l3(x)
+        return x
+
+
+class DDPG(object):
+    def __init__(self, state_dim, action_dim, max_action=2):
+        self.actor = Actor(state_dim, action_dim, max_action).to(device)
+        self.actor_target = Actor(state_dim, action_dim, max_action).to(device)
+        self.actor_target.load_state_dict(self.actor.state_dict())
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-4)
+
+        self.critic = Critic(state_dim, action_dim).to(device)
+        self.critic_target = Critic(state_dim, action_dim).to(device)
+        self.critic_target.load_state_dict(self.critic.state_dict())
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=1e-3)
+        self.replay_buffer = Replay_buffer()
+        # self.writer = SummaryWriter(directory)
+
+        self.num_critic_update_iteration = 0
+        self.num_actor_update_iteration = 0
+        self.num_training = 0
+
+        self.Q = 0
+
+    def select_action(self, state):
+        state = torch.FloatTensor(state.reshape(1, -1)).to(device)
+        return self.actor(state).cpu().data.numpy().flatten()
+
+    def update(self):
+
+        for it in range(UPDATE_ITERATION):
+            # Sample replay buffer
+            x, y, u, r, d = self.replay_buffer.sample(BATCH_SIZE)
+            state = torch.FloatTensor(x).to(device)
+            action = torch.FloatTensor(u).to(device)
+            next_state = torch.FloatTensor(y).to(device)
+            done = torch.FloatTensor(1 - d).to(device)
+            reward = torch.FloatTensor(r).to(device)
+
+            # Compute the target Q value
+            target_Q = self.critic_target(next_state, self.actor_target(next_state))
+            target_Q = reward + (done * GAMMA * target_Q).detach()
+
+            # Get current Q estimate
+            current_Q = self.critic(state, action)
+
+            self.Q = current_Q
+
+            # Compute critic loss
+            critic_loss = F.mse_loss(current_Q, target_Q)
+            # self.writer.add_scalar('Loss/critic_loss', critic_loss, global_step=self.num_critic_update_iteration)
+            # Optimize the critic
+            self.critic_optimizer.zero_grad()
+            critic_loss.backward()
+            self.critic_optimizer.step()
+
+            # Compute actor loss
+            actor_loss = -self.critic(state, self.actor(state)).mean()
+            # self.writer.add_scalar('Loss/actor_loss', actor_loss, global_step=self.num_actor_update_iteration)
+
+            # Optimize the actor
+            self.actor_optimizer.zero_grad()
+            actor_loss.backward()
+            self.actor_optimizer.step()
+
+            # Update the frozen target models
+            for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
+                target_param.data.copy_(TAU * param.data + (1 - TAU) * target_param.data)
+
+            for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
+                target_param.data.copy_(TAU * param.data + (1 - TAU) * target_param.data)
+
+            self.num_actor_update_iteration += 1
+            self.num_critic_update_iteration += 1
+
+    def save(self, ep_num):
+        torch.save(self.actor.state_dict(), dirPath + "actor_{}.pth".format(ep_num))
+        torch.save(self.critic.state_dict(), dirPath + "critic_{}.pth".format(ep_num))
+        # print("====================================")
+        # print("Model has been saved...")
+        # print("====================================")
+
+    def load(self, ep_num):
+        self.actor.load_state_dict(torch.load(dirPath+ "actor_{}.pth".format(ep_num)))
+        self.critic.load_state_dict(torch.load(dirPath + "critic_{}.pth".format(ep_num)))
+        print("====================================")
+        print("model has been loaded...")
+        print("====================================")
+
+
+if __name__ == '__main__':
+
+
+    rospy.init_node('turtlebot3_dqn_stage_4')
+    pub_result = rospy.Publisher('result', Float32MultiArray, queue_size=5)
+    pub_get_action = rospy.Publisher('get_action', Float32MultiArray, queue_size=5)
+    result = Float32MultiArray()
+    get_action = Float32MultiArray()
+
+    state_dim = 28
+    action_dim = 5
+
+    # init environment
+    env = Env(action_dim)
+    test_env = TestEnv(action_dim)
+    agent = DDPG(state_dim, action_dim)
+    ep_r = 0
+    if MODE == 'test':
+        success = 0
+        ddpg_time = 0
+        ddpg_length = 0
+        reset_env = True
+        agent.load(LOAD_EPISODE)
+        for i in range(TEST_ITERATION):
+            if reset_env:
+                state = test_env.reset()
+                reset_env = False
+            t1 = time.time()
+            pathLength = 0
+            for t in count():
+                action = agent.select_action(state)
+                a = np.argmax(action)
+                next_state, reward, done, pathtmp= test_env.step(a)
+                ep_r += reward
+                if done:
+                    print("Ep_i \t{}, the ep_r is \t{:0.2f}, the step is \t{}".format(i, ep_r, t))
+                    ep_r = 0
+                    reset_env = True
+                    run_time = time.time() - t1
+                    break
+                elif reward >= 1000:
+                    success += 1
+                    run_time = time.time() - t1
+                    break
+                state = next_state
+                pathLength += pathtmp
+            ddpg_time += round(run_time, 3)
+            ddpg_length += round(pathLength, 3)
+            print('current successes rate: {}/{}'.format(success, i + 1))
+            print('current average runtime: {}/{}'.format(ddpg_time, i + 1))
+            print('current average path length: {}/{}'.format(ddpg_length, i + 1))
+
+    elif MODE == 'train':
+        if LOAD: agent.load(LOAD_EPISODE)
+        total_step = 0
+        for i in range(MAX_EPISODES):
+            total_reward = 0
+            step = 0
+            state = env.reset()
+            for t in count():
+                action = agent.select_action(state)
+                # print action
+                action = np.clip(np.random.normal(action, EXPLORATION_NOISE), -2, 2)
+
+                a = np.argmax(action)
+                next_state, reward, done = env.step(a)
+                # if args.render and i >= args.render_interval: env.render()
+                agent.replay_buffer.push((state, next_state, action, reward, np.float(done)))
+
+                state = next_state
+                total_reward += reward
+
+                get_action.data = [a, total_reward, reward]
+                pub_get_action.publish(get_action)
+                if done or step >= 500:
+                    break
+
+                step += 1
+            total_step += step + 1
+            print("Total T:{} Episode: \t{} Total Reward: \t{:0.2f}".format(total_step, i, total_reward))
+            agent.update()
+            # "Total T: %d Episode Num: %d Episode T: %d Reward: %f
+
+            if i % LOG_INTERVAL== 0:
+                agent.save(i)
+
+            result.data = [total_reward, reward]
+            pub_result.publish(result)
+    else:
+        raise NameError("mode wrong!!!")

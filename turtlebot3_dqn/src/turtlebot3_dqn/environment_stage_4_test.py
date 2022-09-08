@@ -155,7 +155,7 @@ class TestEnv():
         self.cur_y = self.position.y
         pathlen = math.hypot((self.cur_y-self.pre_y),(self.cur_x-self.pre_x))
 
-        return np.asarray(state), reward, done , pathlen
+        return np.asarray(state), reward, done, pathlen
 
     def reset(self):
         rospy.wait_for_service('gazebo/reset_simulation')
