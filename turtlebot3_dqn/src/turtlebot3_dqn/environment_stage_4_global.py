@@ -173,7 +173,7 @@ class Env():
                 pass
 
 
-        self.goal_x, self.goal_y = self.respawn_goal.getPosition(True)
+        self.goal_x, self.goal_y = self.respawn_goal.getPosition(True,True)
 
 
         done = self.getState(data, (self.goal_x,self.goal_y))

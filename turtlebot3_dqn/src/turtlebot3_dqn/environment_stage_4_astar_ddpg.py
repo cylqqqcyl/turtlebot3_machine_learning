@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: UTF-8 -*-
 #################################################################################
 # Copyright 2018 ROBOTIS CO., LTD.
 #
@@ -254,7 +255,7 @@ def _obstacleMap(map, obsize):
 
 
 class pathPlanning():
-    def __init__(self,env):
+    def __init__(self,start_x,start_y,goal_x,goal_y):
         '''
         起点:[2,2]
         终点:[2,4]
@@ -266,17 +267,22 @@ class pathPlanning():
 
         # 初始化ROS节点
         # rospy.init_node("Astar_global_path_planning", anonymous=True)
+
+        self.init_x = start_x
+        self.init_y = start_y
+        self.tar_x = goal_x
+        self.tar_y = goal_y
+
         self.reward = 0
         # 将数据处理成一个矩阵（未知：-1，可通行：0，不可通行：1）
         self.doMap()
         # obsize是膨胀系数，是按照矩阵的距离，而不是真实距离，所以要进行一个换算
-        self.obsize = 4  # 15太大了
+        self.obsize = 4.5  # 15太大了
         print("现在进行地图膨胀")
         ob_time = time.time()
         _obstacleMap(self.map, self.obsize)
         print("膨胀地图所用时间是:{:.3f}".format(time.time() - ob_time))
         self.map_resize()
-        self.env = env
         # 获取初始位置self.init_x,self.init_y
         self.getIniPose()
         # 获取终点位置self.tar_x,self.tar_y
@@ -321,7 +327,7 @@ class pathPlanning():
         # 发布Astar算法
         # self.pubAstarPath()
 
-    def doMap(self,env):
+    def doMap(self):
         '''
             获取数据
             将数据处理成一个矩阵（未知:-1，可通行:0，不可通行:1）
@@ -362,9 +368,6 @@ class pathPlanning():
         '''
             获取初始坐标点
         '''
-        self.init_x = self.env.position.x
-        self.init_y = self.env.position.y
-
         # 获取对于矩阵中的原始点位置
         self.start_point = self.worldToMap(self.init_x, self.init_y)
 
@@ -372,8 +375,6 @@ class pathPlanning():
         '''
             获取目标坐标点
         '''
-        self.tar_x = self.env.goal_x
-        self.tar_y = self.env.goal_y
         self.final_point = self.worldToMap(self.tar_x, self.tar_y)
 
     def plotAstarPath(self):
@@ -431,8 +432,11 @@ class TestEnv():
         self.respawn_goal = Respawn()
         self.action_type = 0  # 0:front 1:left 2:right 3:back_l 4:back_r
 
+        self.subgoal = [0,0]
+
     def generateSubGoals(self):
-        self.global_map = np.array(pathPlanning(self).pubAstarPath())
+        print("now generating sub-goals")
+        self.global_map = np.array(pathPlanning(self.position.x,self.position.y,self.goal_x,self.goal_y).pubAstarPath())
         self.subgoal = self.global_map[0]
         self.subgoal_index = 0
 
@@ -446,7 +450,7 @@ class TestEnv():
         orientation = odom.pose.pose.orientation
         orientation_list = [orientation.x, orientation.y, orientation.z, orientation.w]
         _, _, yaw = euler_from_quaternion(orientation_list)
-
+        self.yaw = yaw
         # goal_angle = math.atan2(self.goal_y - self.position.y, self.goal_x - self.position.x)
         goal_angle = math.atan2(self.subgoal[1] - self.position.y, self.subgoal[0] - self.position.x)
 
@@ -484,7 +488,7 @@ class TestEnv():
 
         subgoal_distance = round(math.hypot(self.subgoal[0] - self.position.x, self.subgoal[1] - self.position.y), 2)
 
-        if subgoal_distance < 0.05:
+        if subgoal_distance < 0.15:
             self.get_subgoal = True
 
         return scan_range + [heading, subgoal_distance, obstacle_min_range, obstacle_angle], done
@@ -510,12 +514,14 @@ class TestEnv():
             rospy.loginfo("Reached sub-Goal Point")
             self.pub_cmd_vel.publish(Twist())
             self.subgoal_index += 1
+            if self.subgoal_index >= self.global_map.shape[0]:
+                self.subgoal_index = self.global_map.shape[0]-1
             self.subgoal = self.global_map[self.subgoal_index]
             self.get_subgoal = False
 
         return reward
 
-    def getAngleVel(self, action):  # directional aid
+    def getAngleVelDDPG(self, action):  # directional aid
         max_angular_vel = 1.5
         ang_vel = ((self.action_size - 1) / 2 - action) * max_angular_vel * 0.5
         if pi/4 > self.heading > -pi/4:  # front
@@ -535,15 +541,58 @@ class TestEnv():
                 ang_vel += -1.5
         return ang_vel
 
+    def getAngleVelGlobal(self):  # directional aid
+        point_angle = math.atan2(self.subgoal[1] - self.position.y, self.subgoal[0] - self.position.x)
+
+        heading = point_angle - self.yaw
+
+        if heading > pi:
+            heading -= 2 * pi
+
+        elif heading < -pi:
+            heading += 2 * pi
+        # ensure heading is in [-pi,pi]
+
+        if abs(heading) > 0.6:
+            ang_vel = math.copysign(0.5,heading)
+        else:
+            ang_vel = math.copysign(0.1,heading)
+
+        return ang_vel
+
+    def getObstacleMinRange(self,scan):
+        scan_range = []
+
+        for i in range(len(scan.ranges)):
+            if scan.ranges[i] == float('Inf'):
+                scan_range.append(3.5)
+            elif np.isnan(scan.ranges[i]):
+                scan_range.append(0)
+            else:
+                scan_range.append(scan.ranges[i])
+
+        obstacle_min_range = round(min(scan_range), 2)
+
+        return obstacle_min_range
 
     def step(self, action):
         # max_angular_vel = 1.5
         # ang_vel = ((self.action_size - 1)/2 - action) * max_angular_vel * 0.5
-        ang_vel = self.getAngleVel(action)
+
         self.pre_x = self.position.x
         self.pre_y = self.position.y
+
         vel_cmd = Twist()
-        vel_cmd.linear.x = 0.15
+        min_range = self.getObstacleMinRange(self.predata)
+        if min_range < 0.25:
+            ang_vel = self.getAngleVelDDPG(action)
+            vel_cmd.linear.x = 0.15
+        else:
+            ang_vel = self.getAngleVelGlobal()
+            if abs(ang_vel)==0.5:
+                vel_cmd.linear.x = 0.01
+            else:
+                vel_cmd.linear.x = 0.15
         vel_cmd.angular.z = ang_vel
         self.pub_cmd_vel.publish(vel_cmd)
 
@@ -554,6 +603,7 @@ class TestEnv():
             except:
                 pass
 
+        self.predata = data
         state, done = self.getState(data)
         reward = self.setReward(state, done, action)
         self.cur_x = self.position.x
@@ -563,6 +613,7 @@ class TestEnv():
         return np.asarray(state), reward, done, pathlen
 
     def reset(self):
+        print('resetting environment')
         rospy.wait_for_service('gazebo/reset_simulation')
         try:
             self.reset_proxy()
@@ -575,10 +626,16 @@ class TestEnv():
                 data = rospy.wait_for_message('scan', LaserScan, timeout=5)
             except:
                 pass
-
+        self.predata = data
         if self.initGoal:
             self.goal_x, self.goal_y = self.respawn_goal.getPosition()
             self.initGoal = False
+        print('pausing physics!')
+        self.pause_proxy()
+        self.generateSubGoals()
+        print('unpausing physics!')
+        self.unpause_proxy()
+        print('successfully unpaused')
 
         self.goal_distance = self.getGoalDistace()
         state, done = self.getState(data)
