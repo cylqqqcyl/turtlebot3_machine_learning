@@ -28,14 +28,14 @@ from std_srvs.srv import Empty
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from respawnGoal import Respawn
 
-class Env():
-    def __init__(self):
+class TestEnv():
+    def __init__(self, action_size):
         self.goal_x = 0
         self.goal_y = 0
         self.heading = 0
+        self.action_size = action_size
         self.initGoal = True
         self.get_goalbox = False
-        self.get_point = False
         self.position = Pose()
         self.pub_cmd_vel = rospy.Publisher('cmd_vel', Twist, queue_size=5)
         self.sub_odom = rospy.Subscriber('odom', Odometry, self.getOdometry)
@@ -43,13 +43,18 @@ class Env():
         self.unpause_proxy = rospy.ServiceProxy('gazebo/unpause_physics', Empty)
         self.pause_proxy = rospy.ServiceProxy('gazebo/pause_physics', Empty)
         self.respawn_goal = Respawn()
+        self.action_type = 0  # 0:front 1:left 2:right 3:back_l 4:back_r
+
+    def getGoalDistace(self):
+        goal_distance = round(math.hypot(self.goal_x - self.position.x, self.goal_y - self.position.y), 2)
+
+        return goal_distance
 
     def getOdometry(self, odom):
         self.position = odom.pose.pose.position
         orientation = odom.pose.pose.orientation
         orientation_list = [orientation.x, orientation.y, orientation.z, orientation.w]
         _, _, yaw = euler_from_quaternion(orientation_list)
-        self.yaw = yaw
 
         goal_angle = math.atan2(self.goal_y - self.position.y, self.goal_x - self.position.x)
 
@@ -62,8 +67,9 @@ class Env():
         # ensure heading is in [-pi,pi]
         self.heading = round(heading, 2)
 
-    def getState(self, scan, point):
+    def getState(self, scan):
         scan_range = []
+        heading = self.heading
         min_range = 0.13
         done = False
 
@@ -75,88 +81,81 @@ class Env():
             else:
                 scan_range.append(scan.ranges[i])
 
+        obstacle_min_range = round(min(scan_range), 2)
+        obstacle_angle = np.argmin(scan_range)
         if min_range > min(scan_range) > 0:
             done = True
 
-        current_distance = round(math.hypot(self.goal_x - self.position.x, self.goal_y - self.position.y), 2)
+        current_distance = round(math.hypot(self.goal_x - self.position.x, self.goal_y - self.position.y),2)
         if current_distance < 0.2:
             self.get_goalbox = True
 
-        point_distance = round(math.hypot(point[0] - self.position.x, point[1] - self.position.y), 2)
+        return scan_range + [heading, current_distance, obstacle_min_range, obstacle_angle], done
 
-        if point_distance < 0.05:
-            self.get_point = True
-
-        return done
-
-    def setReward(self,done):
+    def setReward(self, state, done, action):
         reward = 0
+
         if done:
             rospy.loginfo("Collision!!")
             reward = -500
             self.pub_cmd_vel.publish(Twist())
 
         if self.get_goalbox:
-            reward = 1000
             rospy.loginfo("Goal!!")
+            reward = 1000
             self.pub_cmd_vel.publish(Twist())
             self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)
+            self.goal_distance = self.getGoalDistace()
             self.get_goalbox = False
 
-        if self.get_point:
-            rospy.loginfo("Reached Path Point")
-            self.pub_cmd_vel.publish(Twist())
         return reward
 
-    def getAngleVel(self, point):  # directional aid
-        point_angle = math.atan2(point[1] - self.position.y, point[0] - self.position.x)
-
-        heading = point_angle - self.yaw
-
-        if heading > pi:
-            heading -= 2 * pi
-
-        elif heading < -pi:
-            heading += 2 * pi
-        # ensure heading is in [-pi,pi]
-
-        if abs(heading) > 0.6:
-            ang_vel = math.copysign(0.5,heading)
-        else:
-            ang_vel = math.copysign(0.1,heading)
-
+    def getAngleVel(self, action):  # directional aid
+        max_angular_vel = 1.5
+        ang_vel = ((self.action_size - 1) / 2 - action) * max_angular_vel * 0.5
+        if pi/4 > self.heading > -pi/4:  # front
+            pass
+        elif 3*pi/4 > self.heading >= pi/4:  # left
+            ang_vel += 0.75
+            self.action_type = 1
+        elif -pi/4 >= self.heading > -3*pi/4:  # right
+            ang_vel += -0.75
+            self.action_type = 2
+        else:  # back
+            if self.heading >= 3*pi/4:
+                self.action_type = 3
+                ang_vel += 1.5
+            else:
+                self.action_type = 4
+                ang_vel += -1.5
         return ang_vel
 
 
-    def step(self, point):
+    def step(self, action):
         # max_angular_vel = 1.5
         # ang_vel = ((self.action_size - 1)/2 - action) * max_angular_vel * 0.5
-        self.get_point = False
-        reward = 0
-        while not self.get_point:
+        ang_vel = self.getAngleVel(action)
+        self.pre_x = self.position.x
+        self.pre_y = self.position.y
+        vel_cmd = Twist()
+        vel_cmd.linear.x = 0.15
+        vel_cmd.angular.z = ang_vel
+        self.pub_cmd_vel.publish(vel_cmd)
 
-            ang_vel = self.getAngleVel(point)
+        data = None
+        while data is None:
+            try:
+                data = rospy.wait_for_message('scan', LaserScan, timeout=5)
+            except:
+                pass
 
-            vel_cmd = Twist()
-            if abs(ang_vel)==0.5:
-                vel_cmd.linear.x = 0.01
-            else:
-                vel_cmd.linear.x = 0.15
-            vel_cmd.angular.z = ang_vel
-            self.pub_cmd_vel.publish(vel_cmd)
+        state, done = self.getState(data)
+        reward = self.setReward(state, done, action)
+        self.cur_x = self.position.x
+        self.cur_y = self.position.y
+        pathlen = math.hypot((self.cur_y-self.pre_y),(self.cur_x-self.pre_x))
 
-            data = None
-            while data is None:
-                try:
-                    data = rospy.wait_for_message('scan', LaserScan, timeout=5)
-                except:
-                    pass
-            done = self.getState(data,point)
-            reward += self.setReward(done)
-            if done or self.get_point or self.get_goalbox:
-                break
-
-        return reward, done
+        return np.asarray(state), reward, done , pathlen
 
     def reset(self):
         rospy.wait_for_service('gazebo/reset_simulation')
@@ -172,10 +171,11 @@ class Env():
             except:
                 pass
 
+        if self.initGoal:
+            self.goal_x, self.goal_y = self.respawn_goal.getPosition()
+            self.initGoal = False
 
-        self.goal_x, self.goal_y = self.respawn_goal.getPosition(True)
+        self.goal_distance = self.getGoalDistace()
+        state, done = self.getState(data)
 
-
-        done = self.getState(data, (self.goal_x,self.goal_y))
-
-        return done
+        return np.asarray(state)

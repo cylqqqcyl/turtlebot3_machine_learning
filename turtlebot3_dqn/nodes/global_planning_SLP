@@ -229,8 +229,8 @@ class SLP:
         self.obs = obs
         self.LINEAR_PATH_CALCULATOR()
         print self.path
-        # self.BASIS_ALGORITHM_PLANNER()
-        # self.GENERATE_LINEARIZED_PATH()
+        self.BASIS_ALGORITHM_PLANNER()
+        self.GENERATE_LINEARIZED_PATH()
         # print self.path
 
     def LINEAR_PATH_CALCULATOR(self):
@@ -244,7 +244,7 @@ class SLP:
         # exclude vertical line case
         if self.s_start[0] - self.s_goal[0] != 0:
             self.line_slope = float(self.s_start[1] - self.s_goal[1]) / (self.s_start[0] - self.s_goal[0]) # float division
-            print self.line_slope
+            # print self.line_slope
             dx_delta = math.copysign(1, self.s_goal[0] - self.s_start[0])
             if dx_delta < 0:
                 self.reverse = True
@@ -276,10 +276,14 @@ class SLP:
                     self.astar_sg.append([(int(astar_sg[a_start][0][0]),int(astar_sg[a_start][0][1])), (int(astar_sg[a_end][1][0]),int(astar_sg[a_end][1][1]))])
                     a_start = i + 1
                 a_end = i + 1
-            if len(astar_sg)>0 and astar_sg[a_start][1][0] > astar_sg[a_end][0][0]:
-                a_end = a_start
-                a_start = i+1
-            self.astar_sg.append([(int(astar_sg[a_start][0][0]),int(astar_sg[a_start][0][1])), (int(astar_sg[a_end][1][0]),int(astar_sg[a_end][1][1]))])
+            if len(astar_sg)>0:
+                    if astar_sg[a_start][1][0] > astar_sg[a_end][0][0]:
+                        tmp = a_end
+                        a_end = a_start
+                        a_start = tmp
+                    else:
+                        pass
+                    self.astar_sg.append([(int(astar_sg[a_start][0][0]),int(astar_sg[a_start][0][1])), (int(astar_sg[a_end][1][0]),int(astar_sg[a_end][1][1]))])
 
 
 
@@ -314,10 +318,12 @@ class SLP:
                     self.astar_sg.append([(int(astar_sg[a_start][0][0]),int(astar_sg[a_start][0][1])), (int(astar_sg[a_end][1][0]),int(astar_sg[a_end][1][1]))])
                     a_start = i + 1
                 a_end = i + 1
-            if len(astar_sg)>0 and astar_sg[a_start][1][1] > astar_sg[a_end][0][1]:
-                a_end = a_start
-                a_start = i+1
-            self.astar_sg.append([(int(astar_sg[a_start][0][0]), int(astar_sg[a_start][0][1])),
+            if len(astar_sg)>0:
+                if astar_sg[a_start][1][1] > astar_sg[a_end][0][1]:
+                    tmp = a_end
+                    a_end = a_start
+                    a_start = tmp
+                self.astar_sg.append([(int(astar_sg[a_start][0][0]), int(astar_sg[a_start][0][1])),
                                   (int(astar_sg[a_end][1][0]), int(astar_sg[a_end][1][1]))])
             # print(self.astar_sg)
         path.append((self.s_goal[1],self.s_goal[0]))
@@ -330,14 +336,14 @@ class SLP:
         """
         slp_path = np.array(self.path)
         for sg in self.astar_sg:
-            print sg
+            # print sg
             astar = AStar(self.map2d,Point(int(sg[0][0]),int(sg[0][1])), Point(int(sg[1][0]),int(sg[1][1])))
             a_path = astar.start()
             a_path = np.array(a_path).reshape(len(a_path),2)
             if self.reverse:
                 a_path = a_path[::-1,:] # reverse and remove start and goal
-            print slp_path
-            print a_path
+            # print slp_path
+            # print a_path
             insert_place = np.where(slp_path == sg[0][0])[0]
             insert_place = np.concatenate([insert_place,np.where(slp_path == sg[0][1])[0]])
             insert_place = stats.mode(insert_place)[0][0]  # the most element
@@ -397,7 +403,7 @@ class SLP:
             else:
                 pre_path_len = cur_path_len
 
-    def is_collision(self, s_start, s_end):
+    def is_collision(self, s_start, s_end, refine_tresh = 7.0):
         """
         check if the line segment (s_start, s_end) is collision.
         :param s_start: start node
@@ -434,7 +440,7 @@ class SLP:
                     # print("B collided at {}".format(point))
                     return True
         else:
-            slope = (s_start[1] - s_end[1]) / (s_start[0] - s_end[0])
+            slope = float(s_start[1] - s_end[1]) / (s_start[0] - s_end[0])
             path_dx = 0
             dx_delta = math.copysign(1, s_end[0] - s_start[0])
 
@@ -516,10 +522,10 @@ class pathPlanning():
         print(self.width,self.height)
         print("起始点")
         print(self.init_x,self.init_y)
-        print(self.start_point)
+        # print(self.start_point)
         print("目标点")
         print(self.tar_x,self.tar_y)
-        print(self.start_point[0])
+        print(self.start_point)
         print(self.final_point)
 
         # #查看是否正确找到起点终点
@@ -549,8 +555,8 @@ class pathPlanning():
         self.calPathLen()
 
         # 发布Astar算法
-        self.plotSLPPath()
-        # self.runSLPPath()
+        # self.plotSLPPath()
+        self.runSLPPath()
 
 
     # def obstacleMap(self,obsize):
@@ -612,15 +618,17 @@ class pathPlanning():
         '''
             获取初始坐标点
         '''
-        goal_x_list = [0.6, 1.9, 0.5, 0.2, -0.8, -1, -1.9, 0.5, 2, 0.5, 0, -0.1, -2]
-        goal_y_list = [0, -0.5, -1.9, 1.5, -0.9, 1, 1.1, -1.5, 1.5, 1.8, -1, 1.6, -0.8]
+        # goal_x_list = [0.6, 1.9, 0.5, 0.2, -0.8, -1, -1.9, 0.5, 2, 0.5, 0, -0.1, -2]
+        # goal_y_list = [0, -0.5, -1.9, 1.5, -0.9, 1, 1.1, -1.5, 1.5, 1.8, -1, 1.6, -0.8]
+        #
+        # self.index = random.randrange(0, 13)
+        # self.index = 4
+        # self.init_x = goal_x_list[self.index]
+        # self.init_y = goal_y_list[self.index]
 
-        self.index = random.randrange(0, 13)
-        self.index = 3
-        self.init_x = goal_x_list[self.index]
-        self.init_y = goal_y_list[self.index]
-        # self.init_x = self.env.position.x
-        # self.init_y = self.env.position.y
+        self.init_x = self.env.position.x
+        self.init_y = self.env.position.y
+
 
         # 获取对于矩阵中的原始点位置
         self.start_point = self.worldToMap(self.init_x, self.init_y)
@@ -629,6 +637,14 @@ class pathPlanning():
         '''
             获取目标坐标点
         '''
+        # goal_x_list = [0.6, 1.9, 0.5, 0.2, -0.8, -1, -1.9, 0.5, 2, 0.5, 0, -0.1, -2]
+        # goal_y_list = [0, -0.5, -1.9, 1.5, -0.9, 1, 1.1, -1.5, 1.5, 1.8, -1, 1.6, -0.8]
+        #
+        # self.index = random.randrange(0, 13)
+        # self.index = 1
+        # self.tar_x = goal_x_list[self.index]
+        # self.tar_y = goal_y_list[self.index]
+
         self.tar_x = self.env.goal_x
         self.tar_y = self.env.goal_y
         self.final_point = self.worldToMap(self.tar_x, self.tar_y)
@@ -685,7 +701,14 @@ if __name__ == "__main__":
     for i in range(iters):
         if reset_env:
             state = env.reset()
-        getmap = pathPlanning(env)
+        try:
+            getmap = pathPlanning(env)
+        except Exception as e:
+            print e
+            print ("Exception happened! Resetting current iter")
+            reset_env = True
+            i -= 1
+            continue
         if getmap.reward >= 1000:
             success += 1
             reset_env = False
