@@ -108,6 +108,7 @@ min_Val = torch.tensor(1e-7).float().to(device)  # min value
 
 # directory = './exp' + script_name + args.env_name + './'
 dirPath = os.path.dirname(os.path.realpath(__file__))
+trajPath = dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/trajectory/')
 dirPath = dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/save_model_ddpg/stage_4_')
 
 # ------------------------------   DDPG   ---------------------------
@@ -321,7 +322,7 @@ if __name__ == '__main__':
             print('current average path length: {}/{}'.format(ddpg_length, i + 1))
         ddpg_route = np.array(ddpg_route)
         df_route = pd.DataFrame({'x':ddpg_route[:,0],'y':ddpg_route[:,1]})
-        file_name = "robot_trajectory.csv"
+        file_name = trajPath + "robot_trajectory.csv"
         print("saving robot trajectory data to {}".format(file_name))
         df_route.to_csv(file_name)
 

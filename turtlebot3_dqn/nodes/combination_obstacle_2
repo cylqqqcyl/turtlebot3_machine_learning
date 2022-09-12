@@ -16,12 +16,14 @@
 #################################################################################
 
 # Authors: Gilbert #
-
+import os
 import rospy
 import time
 from gazebo_msgs.msg import ModelState, ModelStates
 import pandas as pd
 import numpy as np
+dirPath = os.path.dirname(os.path.realpath(__file__))
+trajPath = dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/trajectory/')
 
 class Combination():
     def __init__(self):
@@ -121,7 +123,7 @@ class Combination():
                     route.append(post_point)
         route = np.array(route)
         df_route = pd.DataFrame({'x': route[:, 0], 'y': route[:, 1]})
-        file_name = "obstacle_2_trajectory.csv"
+        file_name = trajPath+"obstacle_2_trajectory.csv"
         print("saving obstacle 2 trajectory data to {}".format(file_name))
         df_route.to_csv(file_name)
 
