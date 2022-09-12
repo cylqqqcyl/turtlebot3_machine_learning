@@ -157,6 +157,9 @@ class TestEnv():
 
         return np.asarray(state), reward, done, pathlen
 
+    def get_route(self):
+        return [self.pre_x,self.pre_y],[self.cur_x,self.cur_y]
+
     def reset(self):
         rospy.wait_for_service('gazebo/reset_simulation')
         try:

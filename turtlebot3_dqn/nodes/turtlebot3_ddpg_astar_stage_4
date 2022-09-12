@@ -32,6 +32,7 @@ import rospy
 import os
 import json
 import numpy as np
+import pandas as pd
 import random
 import time
 import sys
@@ -284,6 +285,7 @@ if __name__ == '__main__':
         success = 0
         ddpg_time = 0
         ddpg_length = 0
+        ddpg_route = []
         reset_env = True
         agent.load(LOAD_EPISODE)
         for i in range(TEST_ITERATION):
@@ -296,6 +298,9 @@ if __name__ == '__main__':
                 action = agent.select_action(state)
                 a = np.argmax(action)
                 next_state, reward, done, pathtmp= test_env.step(a)
+                pre_point,cur_point = test_env.get_route()
+                ddpg_route.append(pre_point)
+                ddpg_route.append(cur_point)
                 ep_r += reward
                 if done:
                     print("Ep_i \t{}, the ep_r is \t{:0.2f}, the step is \t{}".format(i, ep_r, t))
@@ -314,6 +319,11 @@ if __name__ == '__main__':
             print('current successes rate: {}/{}'.format(success, i + 1))
             print('current average runtime: {}/{}'.format(ddpg_time, i + 1))
             print('current average path length: {}/{}'.format(ddpg_length, i + 1))
+        ddpg_route = np.array(ddpg_route)
+        df_route = pd.DataFrame({'x':ddpg_route[:,0],'y':ddpg_route[:,1]})
+        file_name = "robot_trajectory.csv"
+        print("saving robot trajectory data to {}".format(file_name))
+        df_route.to_csv(file_name)
 
     elif MODE == 'train':
         if LOAD: agent.load(LOAD_EPISODE)

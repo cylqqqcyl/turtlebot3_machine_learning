@@ -20,6 +20,8 @@
 import rospy
 import time
 from gazebo_msgs.msg import ModelState, ModelStates
+import pandas as pd
+import numpy as np
 
 class Combination():
     def __init__(self):
@@ -28,6 +30,7 @@ class Combination():
 
     def moving(self):
         state = 0
+        route = []
         while not rospy.is_shutdown():
             model = rospy.wait_for_message('gazebo/model_states', ModelStates)
             for i in range(len(model.name)):
@@ -35,6 +38,8 @@ class Combination():
                     obstacle_1 = ModelState()
                     obstacle_1.model_name = model.name[i]
                     obstacle_1.pose = model.pose[i]
+                    pre_point = [obstacle_1.pose.position.x,obstacle_1.pose.position.y]
+                    route.append(pre_point)
                     if abs(obstacle_1.pose.position.x - 2) < 0.05 and abs(obstacle_1.pose.position.y - 2) < 0.05:
                         state = 0
 
@@ -136,6 +141,13 @@ class Combination():
 
                     self.pub_model.publish(obstacle_1)
                     time.sleep(0.1)
+                    post_point = [obstacle_1.pose.position.x,obstacle_1.pose.position.y]
+                    route.append(post_point)
+        route = np.array(route)
+        df_route = pd.DataFrame({'x':route[:,0],'y':route[:,1]})
+        file_name = "obstacle_1_trajectory.csv"
+        print("saving obstacle 1 trajectory data to {}".format(file_name))
+        df_route.to_csv(file_name)
 
 def main():
     rospy.init_node('combination_obstacle_1')
