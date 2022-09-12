@@ -37,7 +37,7 @@ import sys
 from numba import jit
 import matplotlib.pyplot as plt
 from nav_msgs.msg import OccupancyGrid
-
+from scipy import stats
 # ------------------------------   slp   ---------------------------
 class MapMatrix:
     """
@@ -406,6 +406,7 @@ class SLP:
 
         linearized_path.append(self.path[0])
         linearized_path = np.array(linearized_path)
+        linearized_path = linearized_path[::-1]
         # print(self.path)
         # print(linearized_path[::-1].tolist())
         self.path = linearized_path
@@ -528,11 +529,10 @@ class pathPlanning():
         # 初始化ROS节点
         # rospy.init_node("SLP_global_path_planning", anonymous=True)
         self.reward = 0
-        self.env = env
         # 将数据处理成一个矩阵（未知：-1，可通行：0，不可通行：1）
         self.doMap()
         # obsize是膨胀系数，是按照矩阵的距离，而不是真实距离，所以要进行一个换算
-        self.obsize = 4  # 15太大了
+        self.obsize = 4.5  # 15太大了
         print("现在进行地图膨胀")
         ob_time = time.time()
         _obstacleMap(self.map, self.obsize)
@@ -582,7 +582,7 @@ class pathPlanning():
 
         # 发布Astar算法
         # self.plotSLPPath()
-        self.runSLPPath()
+        # self.runSLPPath()
 
 
     # def obstacleMap(self,obsize):
@@ -673,12 +673,12 @@ class pathPlanning():
         self.pathLength = length
 
     def pubSLPPath(self):
-        world_path = []
-        for i in range(len(self.pathList)):
+         world_path = []
+         for i in range(len(self.pathList)):
             world_path_x = pixwidth - self.pathList[i][0] * self.resolution
             world_path_y = self.pathList[i][1] * self.resolution - pixheight
             world_path.append([world_path_x,world_path_y])
-        return world_path
+         return world_path
 
     def worldToMap(self, x, y):
         # 将rviz地图坐标转换为栅格坐标
@@ -712,9 +712,21 @@ class TestEnv():
 
     def generateSubGoals(self):
         print("now generating sub-goals")
-        self.global_map = np.array(pathPlanning(self.position.x,self.position.y,self.goal_x,self.goal_y).pubAstarPath())
+        try:
+            self.global_map = pathPlanning(self.position.x,self.position.y,self.goal_x,self.goal_y).pubSLPPath()[::-1]
+        except Exception as e:
+            print(e)
+            self.global_map = [[self.goal_x,self.goal_y]]
+        if math.hypot(self.global_map[0][0]-self.position.x,self.global_map[0][1]-self.position.y) > 0.2:
+            print('reversing map')
+            self.global_map.reverse()
+        if math.hypot(self.global_map[-1][0]-self.goal_x,self.global_map[-1][1]-self.goal_y) > 0.2:
+            print('append goal to global map')
+            self.global_map.append([self.goal_x,self.goal_y])
+        self.global_map = np.array(self.global_map)
         self.subgoal = self.global_map[0]
         self.subgoal_index = 0
+        print(self.global_map)
 
     def getGoalDistace(self):
         goal_distance = round(math.hypot(self.goal_x - self.position.x, self.goal_y - self.position.y), 2)
@@ -783,7 +795,13 @@ class TestEnv():
             self.pub_cmd_vel.publish(Twist())
             self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)
             self.goal_distance = self.getGoalDistace()
+            print('pausing physics!')
+            self.pause_proxy()
             self.generateSubGoals()
+            print('unpausing physics!')
+            self.unpause_proxy()
+            print('successfully unpaused')
+            self.subgoal_index = 0
             self.get_goalbox = False
 
         if self.get_subgoal:
@@ -818,9 +836,7 @@ class TestEnv():
         return ang_vel
 
     def getAngleVelGlobal(self):  # directional aid
-        point_angle = math.atan2(self.subgoal[1] - self.position.y, self.subgoal[0] - self.position.x)
-
-        heading = point_angle - self.yaw
+        heading = self.heading
 
         if heading > pi:
             heading -= 2 * pi
@@ -828,7 +844,6 @@ class TestEnv():
         elif heading < -pi:
             heading += 2 * pi
         # ensure heading is in [-pi,pi]
-
         if abs(heading) > 0.6:
             ang_vel = math.copysign(0.5,heading)
         else:
@@ -860,7 +875,7 @@ class TestEnv():
 
         vel_cmd = Twist()
         min_range = self.getObstacleMinRange(self.predata)
-        if min_range < 0.25:
+        if min_range < 0.4:
             ang_vel = self.getAngleVelDDPG(action)
             vel_cmd.linear.x = 0.15
         else:
@@ -890,6 +905,7 @@ class TestEnv():
 
     def reset(self):
         print('resetting environment')
+        self.unpause_proxy()
         rospy.wait_for_service('gazebo/reset_simulation')
         try:
             self.reset_proxy()
@@ -912,6 +928,7 @@ class TestEnv():
         print('unpausing physics!')
         self.unpause_proxy()
         print('successfully unpaused')
+        self.subgoal_index = 0
 
         self.goal_distance = self.getGoalDistace()
         state, done = self.getState(data)

@@ -38,6 +38,7 @@ from numba import jit
 import matplotlib.pyplot as plt
 from nav_msgs.msg import OccupancyGrid
 
+
 # ------------------------------   astar   ---------------------------
 
 class MapMatrix:
@@ -436,9 +437,18 @@ class TestEnv():
 
     def generateSubGoals(self):
         print("now generating sub-goals")
-        self.global_map = np.array(pathPlanning(self.position.x,self.position.y,self.goal_x,self.goal_y).pubAstarPath())
+        try:
+            self.global_map = pathPlanning(self.position.x,self.position.y,self.goal_x,self.goal_y).pubAstarPath()
+        except Exception as e:
+            print(e)
+            self.global_map = [[self.goal_x,self.goal_y]]
         self.subgoal = self.global_map[0]
         self.subgoal_index = 0
+        if math.hypot(self.global_map[-1][0]-self.goal_x,self.global_map[-1][1]-self.goal_y) > 0.2:
+            print('append goal to global map')
+            self.global_map.append([self.goal_x,self.goal_y])
+        self.global_map = np.array(self.global_map)
+        print(self.global_map)
 
     def getGoalDistace(self):
         goal_distance = round(math.hypot(self.goal_x - self.position.x, self.goal_y - self.position.y), 2)
@@ -450,7 +460,6 @@ class TestEnv():
         orientation = odom.pose.pose.orientation
         orientation_list = [orientation.x, orientation.y, orientation.z, orientation.w]
         _, _, yaw = euler_from_quaternion(orientation_list)
-        self.yaw = yaw
         # goal_angle = math.atan2(self.goal_y - self.position.y, self.goal_x - self.position.x)
         goal_angle = math.atan2(self.subgoal[1] - self.position.y, self.subgoal[0] - self.position.x)
 
@@ -488,7 +497,7 @@ class TestEnv():
 
         subgoal_distance = round(math.hypot(self.subgoal[0] - self.position.x, self.subgoal[1] - self.position.y), 2)
 
-        if subgoal_distance < 0.15:
+        if subgoal_distance < 0.2:
             self.get_subgoal = True
 
         return scan_range + [heading, subgoal_distance, obstacle_min_range, obstacle_angle], done
@@ -507,7 +516,12 @@ class TestEnv():
             self.pub_cmd_vel.publish(Twist())
             self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)
             self.goal_distance = self.getGoalDistace()
+            print('pausing physics!')
+            self.pause_proxy()
             self.generateSubGoals()
+            print('unpausing physics!')
+            self.unpause_proxy()
+            print('successfully unpaused')
             self.get_goalbox = False
 
         if self.get_subgoal:
@@ -542,16 +556,8 @@ class TestEnv():
         return ang_vel
 
     def getAngleVelGlobal(self):  # directional aid
-        point_angle = math.atan2(self.subgoal[1] - self.position.y, self.subgoal[0] - self.position.x)
 
-        heading = point_angle - self.yaw
-
-        if heading > pi:
-            heading -= 2 * pi
-
-        elif heading < -pi:
-            heading += 2 * pi
-        # ensure heading is in [-pi,pi]
+        heading = self.heading
 
         if abs(heading) > 0.6:
             ang_vel = math.copysign(0.5,heading)
@@ -584,7 +590,7 @@ class TestEnv():
 
         vel_cmd = Twist()
         min_range = self.getObstacleMinRange(self.predata)
-        if min_range < 0.25:
+        if min_range < 0.4:
             ang_vel = self.getAngleVelDDPG(action)
             vel_cmd.linear.x = 0.15
         else:
@@ -627,9 +633,9 @@ class TestEnv():
             except:
                 pass
         self.predata = data
-        if self.initGoal:
-            self.goal_x, self.goal_y = self.respawn_goal.getPosition()
-            self.initGoal = False
+
+        self.goal_x, self.goal_y = self.respawn_goal.getPosition(True,True)
+
         print('pausing physics!')
         self.pause_proxy()
         self.generateSubGoals()

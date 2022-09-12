@@ -159,6 +159,7 @@ class Env():
         return reward, done
 
     def reset(self):
+        self.unpause_proxy()
         rospy.wait_for_service('gazebo/reset_simulation')
         try:
             self.reset_proxy()
