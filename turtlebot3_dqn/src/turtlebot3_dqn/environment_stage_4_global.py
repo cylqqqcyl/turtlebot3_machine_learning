@@ -133,8 +133,9 @@ class Env():
         # ang_vel = ((self.action_size - 1)/2 - action) * max_angular_vel * 0.5
         self.get_point = False
         reward = 0
+        route = []
         while not self.get_point:
-
+            route.append([self.position.x,self.position.y])
             ang_vel = self.getAngleVel(point)
 
             vel_cmd = Twist()
@@ -156,7 +157,8 @@ class Env():
             if done or self.get_point or self.get_goalbox:
                 break
 
-        return reward, done
+        return reward, done ,route
+
 
     def reset(self):
         self.unpause_proxy()

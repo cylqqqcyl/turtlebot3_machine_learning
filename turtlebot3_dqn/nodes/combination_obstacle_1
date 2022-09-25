@@ -19,6 +19,7 @@
 import os
 import rospy
 import time
+from datetime import datetime
 from gazebo_msgs.msg import ModelState, ModelStates
 import pandas as pd
 import numpy as np
@@ -147,7 +148,7 @@ class Combination():
                     route.append(post_point)
         route = np.array(route)
         df_route = pd.DataFrame({'x':route[:,0],'y':route[:,1]})
-        file_name = trajPath+"obstacle_1_trajectory.csv"
+        file_name = trajPath+"obstacle_1_trajectory{}.csv".format(datetime.now().strftime("%Y-%m-%d-%H-%M"))
         print("saving obstacle 1 trajectory data to {}".format(file_name))
         df_route.to_csv(file_name)
 

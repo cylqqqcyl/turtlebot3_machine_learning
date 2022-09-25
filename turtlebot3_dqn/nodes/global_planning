@@ -17,7 +17,9 @@ from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
 from src.turtlebot3_dqn.environment_stage_4_global import Env
-
+import pandas as pd
+dirPath = os.path.dirname(os.path.realpath(__file__))
+trajPath = dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/trajectory/')
 
 # ------------------------    Astar     --------------------------
 class MapMatrix:
@@ -248,6 +250,7 @@ class pathPlanning():
         # 初始化ROS节点
         # rospy.init_node("Astar_global_path_planning", anonymous=True)
         self.reward = 0
+        self.trajectory = []
         self.env = env
         # 将数据处理成一个矩阵（未知：-1，可通行：0，不可通行：1）
         self.doMap()
@@ -401,7 +404,8 @@ class pathPlanning():
         for i in range(len(self.pathList)):
             world_path_x = pixwidth - self.pathList[i][0] * self.resolution
             world_path_y = self.pathList[i][1] * self.resolution - pixheight
-            reward,done = self.env.step((world_path_x,world_path_y))
+            reward,done,route = self.env.step((world_path_x,world_path_y))
+            self.trajectory.extend(route)
             self.reward += reward
             if done or reward==1000:
                 break
@@ -409,6 +413,7 @@ class pathPlanning():
                 pass
         t2 = time.time()
         self.run_time = t2 -t1
+
 
     def worldToMap(self, x, y):
         # 将rviz地图坐标转换为栅格坐标
@@ -440,4 +445,9 @@ if __name__ == "__main__":
         print('current successes rate: {}/{}'.format(success,i+1))
         print('current average runtime: {}/{}'.format(astar_time, i + 1))
         print('current average path length: {}/{}'.format(astar_length, i + 1))
+        global_route = np.array(getmap.trajectory)
+        df_route = pd.DataFrame({'x': global_route[:, 0], 'y': global_route[:, 1]})
+        file_name = trajPath + "robot_trajectory_astar.csv"
+        print("saving robot trajectory data to {}".format(file_name))
+        df_route.to_csv(file_name)
     print('success rate = {}'.format(success/iters))
