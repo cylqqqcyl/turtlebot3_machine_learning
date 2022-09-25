@@ -331,6 +331,7 @@ class pathPlanning():
             将数据处理成一个矩阵（未知:-1，可通行:0，不可通行:1）
         '''
         # 获取地图数据
+        print('waiting for map...')
         self.OGmap = rospy.wait_for_message("/map", OccupancyGrid, timeout=None)
         # 地图的宽度
         self.width = self.OGmap.info.width
@@ -426,7 +427,7 @@ class pathPlanning():
 if __name__ == "__main__":
     rospy.init_node("Astar_global_path_planning", anonymous=True)
     env = Env()
-    iters = 300
+    iters = 1
     success = 0
     astar_time = 0
     astar_length = 0

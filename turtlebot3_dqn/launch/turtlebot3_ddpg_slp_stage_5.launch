@@ -1,0 +1,6 @@
+<launch>
+  <arg name="stage" default="4"/>
+  <param name="stage_number"  value="$(arg stage)"/>
+  <node pkg="turtlebot3_dqn" type="turtlebot3_ddpg_slp_stage_4" name="turtlebot3_ddpg_slp_stage_4" output="screen" />
+
+</launch>

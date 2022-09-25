@@ -514,7 +514,7 @@ class TestEnv():
             rospy.loginfo("Goal!!")
             reward = 1000
             self.pub_cmd_vel.publish(Twist())
-            self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)
+            # self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)
             self.goal_distance = self.getGoalDistace()
             print('pausing physics!')
             self.pause_proxy()
@@ -522,7 +522,6 @@ class TestEnv():
             print('unpausing physics!')
             self.unpause_proxy()
             print('successfully unpaused')
-            self.get_goalbox = False
 
         if self.get_subgoal:
             rospy.loginfo("Reached sub-Goal Point")

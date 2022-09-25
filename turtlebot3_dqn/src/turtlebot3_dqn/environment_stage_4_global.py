@@ -100,8 +100,7 @@ class Env():
             reward = 1000
             rospy.loginfo("Goal!!")
             self.pub_cmd_vel.publish(Twist())
-            self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)
-            self.get_goalbox = False
+            # self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)
 
         if self.get_point:
             rospy.loginfo("Reached Path Point")
@@ -161,7 +160,7 @@ class Env():
 
 
     def reset(self):
-        self.unpause_proxy()
+        print('resetting environment!')
         rospy.wait_for_service('gazebo/reset_simulation')
         try:
             self.reset_proxy()

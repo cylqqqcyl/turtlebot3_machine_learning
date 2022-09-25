@@ -559,7 +559,12 @@ class pathPlanning():
         self.calPathLen()
 
         # 发布Astar算法
-        # self.plotSLPPath()
+        self.pathList = self.pathList[::-1]
+        for point in self.pathList:
+            world_path_x = pixwidth - point[0] * self.resolution
+            world_path_y = point[1] * self.resolution - pixheight
+            print([world_path_x,world_path_y])
+        self.plotSLPPath()
         self.runSLPPath()
 
 
@@ -698,7 +703,7 @@ class pathPlanning():
 if __name__ == "__main__":
     rospy.init_node("SLP_global_path_planning", anonymous=True)
     env = Env()
-    iters = 300
+    iters = 1
     success = 0
     slp_time = 0
     slp_length = 0
