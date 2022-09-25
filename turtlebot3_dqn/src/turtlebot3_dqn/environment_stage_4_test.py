@@ -104,7 +104,7 @@ class TestEnv():
             rospy.loginfo("Goal!!")
             reward = 1000
             self.pub_cmd_vel.publish(Twist())
-            self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)
+            # self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True) #  no respawn when in test mode
             self.goal_distance = self.getGoalDistace()
             self.get_goalbox = False
 

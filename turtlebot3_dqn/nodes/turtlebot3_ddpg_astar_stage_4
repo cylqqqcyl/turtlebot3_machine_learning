@@ -73,7 +73,7 @@ MODE = 'test'  # mode = 'train' or 'test'
 # env_name = "Pendulum-v0"
 TAU = 0.005  # target smoothing coefficient
 TARGET_UPDATE_INTERVAL= 1
-TEST_ITERATION = 1
+TEST_ITERATION = 20
 
 learning_rate = 1e-4
 GAMMA = 0.99  # discounted factor
@@ -287,6 +287,8 @@ if __name__ == '__main__':
         ddpg_time = 0
         ddpg_length = 0
         ddpg_route = []
+        times = []
+        lengths = []
         reset_env = True
         agent.load(LOAD_EPISODE)
         for i in range(TEST_ITERATION):
@@ -317,14 +319,22 @@ if __name__ == '__main__':
                 pathLength += pathtmp
             ddpg_time += round(run_time, 3)
             ddpg_length += round(pathLength, 3)
+            times.append(round(run_time, 3))
+            lengths.append(round(pathLength, 3))
             print('current successes rate: {}/{}'.format(success, i + 1))
             print('current average runtime: {}/{}'.format(ddpg_time, i + 1))
             print('current average path length: {}/{}'.format(ddpg_length, i + 1))
         ddpg_route = np.array(ddpg_route)
-        df_route = pd.DataFrame({'x':ddpg_route[:,0],'y':ddpg_route[:,1]})
-        file_name = trajPath + "robot_trajectory_ddpg_astar.csv"
-        print("saving robot trajectory data to {}".format(file_name))
-        df_route.to_csv(file_name)
+        times = np.array(times)
+        lengths = np.array(lengths)
+        df_data = pd.DataFrame({'x': range(TEST_ITERATION), 'y': times, 'z': lengths})
+        df_route = pd.DataFrame({'x': ddpg_route[:, 0], 'y': ddpg_route[:, 1]})
+        file_name1 = trajPath + "robot_trajectory_ddpg_astar.csv"
+        file_name2 = trajPath + "robot_data_ddpg_astar.csv"
+        print("saving robot trajectory data to {}".format(file_name1))
+        print("saving test data to {}".format(file_name2))
+        df_route.to_csv(file_name1)
+        df_data.to_csv(file_name2)
 
     elif MODE == 'train':
         if LOAD: agent.load(LOAD_EPISODE)
