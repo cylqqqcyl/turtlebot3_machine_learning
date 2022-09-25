@@ -515,13 +515,14 @@ class TestEnv():
             reward = 1000
             self.pub_cmd_vel.publish(Twist())
             # self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True) #  no respawn when in test mode
-            self.goal_distance = self.getGoalDistace()
-            print('pausing physics!')
-            self.pause_proxy()
-            self.generateSubGoals()
-            print('unpausing physics!')
-            self.unpause_proxy()
-            print('successfully unpaused')
+            # self.goal_distance = self.getGoalDistace()
+            # print('pausing physics!')
+            # self.pause_proxy()
+            # self.generateSubGoals()
+            # print('unpausing physics!')
+            # self.unpause_proxy()
+            # print('successfully unpaused')
+            self.get_goalbox = False
 
         if self.get_subgoal:
             rospy.loginfo("Reached sub-Goal Point")
@@ -635,8 +636,9 @@ class TestEnv():
             except:
                 pass
         self.predata = data
-
-        self.goal_x, self.goal_y = self.respawn_goal.getPosition(True,True)
+        if self.initGoal:
+            self.goal_x, self.goal_y = self.respawn_goal.getPosition()
+            self.initGoal =False
 
         print('pausing physics!')
         self.pause_proxy()

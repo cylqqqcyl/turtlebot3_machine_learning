@@ -294,7 +294,7 @@ if __name__ == '__main__':
         for i in range(TEST_ITERATION):
             if reset_env:
                 state = test_env.reset()
-                reset_env = False
+                # reset_env = False
             t1 = time.time()
             pathLength = 0
             for t in count():
