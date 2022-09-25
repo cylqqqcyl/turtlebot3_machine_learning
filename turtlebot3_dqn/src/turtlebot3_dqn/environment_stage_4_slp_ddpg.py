@@ -875,7 +875,7 @@ class TestEnv():
 
         vel_cmd = Twist()
         min_range = self.getObstacleMinRange(self.predata)
-        if min_range < 0.4:
+        if min_range < 0.46:
             ang_vel = self.getAngleVelDDPG(action)
             vel_cmd.linear.x = 0.15
         else:

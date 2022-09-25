@@ -559,12 +559,12 @@ class pathPlanning():
         self.calPathLen()
 
         # 发布Astar算法
-        self.pathList = self.pathList[::-1]
-        for point in self.pathList:
-            world_path_x = pixwidth - point[0] * self.resolution
-            world_path_y = point[1] * self.resolution - pixheight
-            print([world_path_x,world_path_y])
-        self.plotSLPPath()
+        # self.pathList = self.pathList[::-1]
+        # for point in self.pathList:
+        #     world_path_x = pixwidth - point[0] * self.resolution
+        #     world_path_y = point[1] * self.resolution - pixheight
+        #     print([world_path_x,world_path_y])
+        # self.plotSLPPath()
         self.runSLPPath()
 
 
