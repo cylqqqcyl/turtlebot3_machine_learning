@@ -256,12 +256,12 @@ class SLP:
                 if self.s_start[0] + path_dx == self.s_goal[0]:
                     break
                 path_dx += dx_delta
-                point = (self.s_start[0] + path_dx, math.ceil(self.s_start[1] + self.line_slope * path_dx))
+                point = (self.s_start[0] + path_dx, round(self.s_start[1] + self.line_slope * path_dx))
                 if point in self.obs:
                     inter.append(point)
                     astar_sg.append(
-                        [(self.s_start[0] + path_dx - 1, math.ceil(self.s_start[1] + self.line_slope * (path_dx - 1))),
-                         (self.s_start[0] + path_dx + 1, math.ceil(self.s_start[1] + self.line_slope * (path_dx + 1)))])
+                        [(self.s_start[0] + path_dx - dx_delta, round(self.s_start[1] + self.line_slope * (path_dx - dx_delta))),
+                         (self.s_start[0] + path_dx + dx_delta, round(self.s_start[1] + self.line_slope * (path_dx + dx_delta)))])
                 else:
                     path.append((point[1],point[0]))
             # intersection point processing:
@@ -303,8 +303,8 @@ class SLP:
                 if point in self.obs:
                     inter.append(point)
                     astar_sg.append(
-                        [(self.s_start[0],self.s_start[1] + path_dy - 1 ),
-                         (self.s_start[0],self.s_start[1] + path_dy + 1 )])
+                        [(self.s_start[0],self.s_start[1] + path_dy - dy_delta ),
+                         (self.s_start[0],self.s_start[1] + path_dy + dy_delta )])
                 else:
                     path.append((point[1],point[0]))
 
@@ -343,13 +343,12 @@ class SLP:
             astar = AStar(self.map2d,Point(int(sg[0][0]),int(sg[0][1])), Point(int(sg[1][0]),int(sg[1][1])))
             a_path = astar.start()
             a_path = np.array(a_path).reshape(len(a_path),2)
-            if self.reverse:
-                a_path = a_path[::-1,:] # reverse and remove start and goal
+
+
+            a_path = a_path[::-1,:] # reverse and remove start and goal
             # print slp_path
             # print a_path
-            insert_place = np.where(slp_path == sg[0][0])[0]
-            insert_place = np.concatenate([insert_place,np.where(slp_path == sg[0][1])[0]])
-            insert_place = stats.mode(insert_place)[0][0]  # the most element
+            insert_place = np.where((slp_path == a_path[0]).all(axis=1))[0][0]
             slp_path_a = slp_path[0:insert_place]
             slp_path_b = slp_path[insert_place+1:]
             slp_path = np.concatenate((slp_path_a,a_path))
@@ -391,6 +390,7 @@ class SLP:
 
         linearized_path.append(self.path[0])
         linearized_path = np.array(linearized_path)
+        linearized_path = linearized_path[::-1]
         # print(self.path)
         # print(linearized_path[::-1].tolist())
         self.path = linearized_path
@@ -445,16 +445,14 @@ class SLP:
         else:
             slope = float(s_start[1] - s_end[1]) / (s_start[0] - s_end[0])
             path_dx = 0
-            dx_delta = math.copysign(1, s_end[0] - s_start[0])
+            dx_delta = math.copysign(0.25, s_end[0] - s_start[0])
 
             while True:
                 if s_start[0] + path_dx == s_end[0]:
                     break
                 path_dx += dx_delta
-                ceil_point = (s_start[0] + path_dx, math.ceil(s_start[1] + slope * path_dx))
-                floor_point = (s_start[0] + path_dx, math.floor(s_start[1] + slope * path_dx))
-                if ceil_point in self.obs or floor_point in self.obs:
-                    # print("collided at {} or {}".format(ceil_point,floor_point))
+                round_point = (round(s_start[0] + path_dx), round(s_start[1] + slope * path_dx))
+                if round_point in self.obs:
                     return True
         return False
 
