@@ -529,7 +529,7 @@ class pathPlanning():
         # 将数据处理成一个矩阵（未知：-1，可通行：0，不可通行：1）
         self.doMap()
         # obsize是膨胀系数，是按照矩阵的距离，而不是真实距离，所以要进行一个换算
-        self.obsize = 4.5  # 15太大了
+        self.obsize = 7  # 15太大了
         print("现在进行地图膨胀")
         ob_time = time.time()
         _obstacleMap(self.map, self.obsize)
@@ -689,6 +689,7 @@ class pathPlanning():
 # ------------------------------       ---------------------------
 class TestEnv():
     def __init__(self, action_size):
+        self.subgoal_index = 0
         self.goal_x = 0
         self.goal_y = 0
         self.heading = 0
@@ -724,6 +725,9 @@ class TestEnv():
         self.subgoal = self.global_map[0]
         self.subgoal_index = 0
         print(self.global_map)
+        rospy.loginfo("Sub-Goal position : %.1f, %.1f", self.subgoal[0],
+                      self.subgoal[1])
+
 
     def getGoalDistace(self):
         goal_distance = round(math.hypot(self.goal_x - self.position.x, self.goal_y - self.position.y), 2)
@@ -773,7 +777,7 @@ class TestEnv():
 
         subgoal_distance = round(math.hypot(self.subgoal[0] - self.position.x, self.subgoal[1] - self.position.y), 2)
 
-        if subgoal_distance < 0.15:
+        if subgoal_distance < 0.5:
             self.get_subgoal = True
 
         return scan_range + [heading, subgoal_distance, obstacle_min_range, obstacle_angle], done
@@ -790,15 +794,15 @@ class TestEnv():
             rospy.loginfo("Goal!!")
             reward = 1000
             self.pub_cmd_vel.publish(Twist())
-            # self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True) #  no respawn when in test mode
+            self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True) #  no respawn when in repeat test mode
             self.goal_distance = self.getGoalDistace()
-            # print('pausing physics!')
-            # self.pause_proxy()
-            # self.generateSubGoals()
-            # print('unpausing physics!')
-            # self.unpause_proxy()
-            # print('successfully unpaused')
-            # self.subgoal_index = 0
+            print('pausing physics!')
+            self.pause_proxy()
+            self.generateSubGoals()
+            print('unpausing physics!')
+            self.unpause_proxy()
+            print('successfully unpaused')
+            self.subgoal_index = 0
             self.get_goalbox = False
 
         if self.get_subgoal:
@@ -807,6 +811,9 @@ class TestEnv():
             self.subgoal_index += 1
             if self.subgoal_index >= self.global_map.shape[0]:
                 self.subgoal_index = self.global_map.shape[0]-1
+            else:
+                rospy.loginfo("Sub-Goal position : %.1f, %.1f", self.subgoal[0],
+                          self.subgoal[1])
             self.subgoal = self.global_map[self.subgoal_index]
             self.get_subgoal = False
 
@@ -815,21 +822,21 @@ class TestEnv():
     def getAngleVelDDPG(self, action):  # directional aid
         max_angular_vel = 1.5
         ang_vel = ((self.action_size - 1) / 2 - action) * max_angular_vel * 0.5
-        if pi/4 > self.heading > -pi/4:  # front
-            pass
-        elif 3*pi/4 > self.heading >= pi/4:  # left
-            ang_vel += 0.75
-            self.action_type = 1
-        elif -pi/4 >= self.heading > -3*pi/4:  # right
-            ang_vel += -0.75
-            self.action_type = 2
-        else:  # back
-            if self.heading >= 3*pi/4:
-                self.action_type = 3
-                ang_vel += 1.5
-            else:
-                self.action_type = 4
-                ang_vel += -1.5
+        # if pi/4 > self.heading > -pi/4:  # front
+        #     pass
+        # elif 3*pi/4 > self.heading >= pi/4:  # left
+        #     ang_vel += 0.75
+        #     self.action_type = 1
+        # elif -pi/4 >= self.heading > -3*pi/4:  # right
+        #     ang_vel += -0.75
+        #     self.action_type = 2
+        # else:  # back
+        #     if self.heading >= 3*pi/4:
+        #         self.action_type = 3
+        #         ang_vel += 1.5
+        #     else:
+        #         self.action_type = 4
+        #         ang_vel += -1.5
         return ang_vel
 
     def getAngleVelGlobal(self):  # directional aid
@@ -871,16 +878,16 @@ class TestEnv():
         self.pre_y = self.position.y
 
         vel_cmd = Twist()
-        min_range = self.getObstacleMinRange(self.predata)
-        if min_range < 0.46:
-            ang_vel = self.getAngleVelDDPG(action)
-            vel_cmd.linear.x = 0.15
-        else:
-            ang_vel = self.getAngleVelGlobal()
-            if abs(ang_vel)==0.5:
-                vel_cmd.linear.x = 0.01
-            else:
-                vel_cmd.linear.x = 0.15
+        # min_range = self.getObstacleMinRange(self.predata)
+        # if min_range < 0.46:
+        ang_vel = self.getAngleVelDDPG(action)
+        vel_cmd.linear.x = 0.15
+        # else:
+        #     ang_vel = self.getAngleVelGlobal()
+        #     if abs(ang_vel)==0.5:
+        #         vel_cmd.linear.x = 0.01
+        #     else:
+        #         vel_cmd.linear.x = 0.15
         vel_cmd.angular.z = ang_vel
         self.pub_cmd_vel.publish(vel_cmd)
 

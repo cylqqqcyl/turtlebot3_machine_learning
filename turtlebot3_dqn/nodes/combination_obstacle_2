@@ -25,7 +25,7 @@ import pandas as pd
 import numpy as np
 dirPath = os.path.dirname(os.path.realpath(__file__))
 trajPath = dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/trajectory/')
-
+save_file=False
 class Combination():
     def __init__(self):
         self.pub_model = rospy.Publisher('gazebo/set_model_state', ModelState, queue_size=1)
@@ -122,11 +122,12 @@ class Combination():
                     time.sleep(0.1)
                     post_point = [obstacle_2.pose.position.x, obstacle_2.pose.position.y]
                     route.append(post_point)
-        route = np.array(route)
-        df_route = pd.DataFrame({'x': route[:, 0], 'y': route[:, 1]})
-        file_name = trajPath+"obstacle_2_trajectory{}.csv".format(datetime.now().strftime("%Y-%m-%d-%H-%M"))
-        print("saving obstacle 2 trajectory data to {}".format(file_name))
-        df_route.to_csv(file_name)
+        if save_file:
+            route = np.array(route)
+            df_route = pd.DataFrame({'x': route[:, 0], 'y': route[:, 1]})
+            file_name = trajPath+"obstacle_2_trajectory{}.csv".format(datetime.now().strftime("%Y-%m-%d-%H-%M"))
+            print("saving obstacle 2 trajectory data to {}".format(file_name))
+            df_route.to_csv(file_name)
 
 def main():
     rospy.init_node('combination_obstacle_2')

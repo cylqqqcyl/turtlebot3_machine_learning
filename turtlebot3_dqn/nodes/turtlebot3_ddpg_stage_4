@@ -63,7 +63,7 @@ np.random.seed(42)
 MODE = 'test'  # mode = 'train' or 'test'
 TAU = 0.005  # target smoothing coefficient
 TARGET_UPDATE_INTERVAL= 1
-TEST_ITERATION = 20
+TEST_ITERATION = 300
 
 learning_rate = 1e-4
 GAMMA = 0.99  # discounted factor
@@ -95,7 +95,7 @@ min_Val = torch.tensor(1e-7).float().to(device)  # min value
 # directory = './exp' + script_name + args.env_name + './'
 dirPath = os.path.dirname(os.path.realpath(__file__))
 trajPath = dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/trajectory/')
-dirPath = dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/save_model_ddpg/stage_4_')
+dirPath = dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/save_model_ddpg_org/stage_4_')
 
 class Replay_buffer():
     '''
@@ -297,9 +297,10 @@ if __name__ == '__main__':
                     break
                 elif reward >= 1000:
                     success += 1
-                    reset_env = True
+                    reset_env = False  # set True in repeat test mode
                     run_time = time.time() - t1
                     break
+
                 state = next_state
                 pathLength += pathtmp
             ddpg_time += round(run_time, 3)

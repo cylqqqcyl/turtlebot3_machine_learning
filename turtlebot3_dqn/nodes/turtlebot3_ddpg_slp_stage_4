@@ -73,7 +73,7 @@ MODE = 'test'  # mode = 'train' or 'test'
 # env_name = "Pendulum-v0"
 TAU = 0.005  # target smoothing coefficient
 TARGET_UPDATE_INTERVAL= 1
-TEST_ITERATION = 20
+TEST_ITERATION = 300
 
 learning_rate = 1e-4
 GAMMA = 0.99  # discounted factor
@@ -314,6 +314,7 @@ if __name__ == '__main__':
                 elif reward >= 1000:
                     success += 1
                     run_time = time.time() - t1
+                    reset_env = False
                     break
                 state = next_state
                 pathLength += pathtmp

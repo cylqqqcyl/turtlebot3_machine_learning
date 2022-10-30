@@ -55,6 +55,7 @@ class TestEnv():
         orientation = odom.pose.pose.orientation
         orientation_list = [orientation.x, orientation.y, orientation.z, orientation.w]
         _, _, yaw = euler_from_quaternion(orientation_list)
+        self.yaw = yaw
 
         goal_angle = math.atan2(self.goal_y - self.position.y, self.goal_x - self.position.x)
 
@@ -104,7 +105,7 @@ class TestEnv():
             rospy.loginfo("Goal!!")
             reward = 1000
             self.pub_cmd_vel.publish(Twist())
-            # self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True) #  no respawn when in test mode
+            self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True) #  no respawn when in repeat test mode
             self.goal_distance = self.getGoalDistace()
             self.get_goalbox = False
 
@@ -113,22 +114,23 @@ class TestEnv():
     def getAngleVel(self, action):  # directional aid
         max_angular_vel = 1.5
         ang_vel = ((self.action_size - 1) / 2 - action) * max_angular_vel * 0.5
-        if pi/4 > self.heading > -pi/4:  # front
-            pass
-        elif 3*pi/4 > self.heading >= pi/4:  # left
-            ang_vel += 0.75
-            self.action_type = 1
-        elif -pi/4 >= self.heading > -3*pi/4:  # right
-            ang_vel += -0.75
-            self.action_type = 2
-        else:  # back
-            if self.heading >= 3*pi/4:
-                self.action_type = 3
-                ang_vel += 1.5
-            else:
-                self.action_type = 4
-                ang_vel += -1.5
+    #     if pi/4 > self.heading > -pi/4:  # front
+    #         pass
+    #     elif 3*pi/4 > self.heading >= pi/4:  # left
+    #         ang_vel += 0.75
+    #         self.action_type = 1
+    #     elif -pi/4 >= self.heading > -3*pi/4:  # right
+    #         ang_vel += -0.75
+    #         self.action_type = 2
+    #     else:  # back
+    #         if self.heading >= 3*pi/4:
+    #             self.action_type = 3
+    #             ang_vel += 1.5
+    #         else:
+    #             self.action_type = 4
+    #             ang_vel += -1.5
         return ang_vel
+
 
 
     def step(self, action):
