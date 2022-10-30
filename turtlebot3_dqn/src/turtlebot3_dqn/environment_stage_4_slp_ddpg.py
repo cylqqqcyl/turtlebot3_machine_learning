@@ -360,14 +360,21 @@ class SLP:
             a_path = np.array(a_path).reshape(len(a_path),2)
 
 
-            a_path = a_path[::-1,:] # reverse and remove start and goal
-            # print slp_path
-            # print a_path
-            insert_place = np.where((slp_path == a_path[0]).all(axis=1))[0][0]
-            slp_path_a = slp_path[0:insert_place]
-            slp_path_b = slp_path[insert_place+1:]
-            slp_path = np.concatenate((slp_path_a,a_path))
-            slp_path = np.concatenate((slp_path,slp_path_b)) # insert astar path
+            # a_path = a_path[::-1,:] # reverse and remove start and goal
+            # print(slp_path)
+            # print(a_path)
+            if np.where((slp_path == a_path[0]).all(axis=1))[0].shape[0]>0:
+                insert_place = np.where((slp_path == a_path[0]).all(axis=1))[0][0]
+                slp_path_a = slp_path[0:insert_place]
+                slp_path_b = slp_path[min(insert_place+1,slp_path.shape[0]):]
+                slp_path = np.concatenate((slp_path_a,a_path))
+                slp_path = np.concatenate((slp_path,slp_path_b)) # insert astar path
+            elif np.where((slp_path == a_path[-1]).all(axis=1))[0].shape[0]>0:
+                insert_place = np.where((slp_path == a_path[-1]).all(axis=1))[0][0]
+                slp_path_a = slp_path[0:max(insert_place,0)]
+                slp_path_b = slp_path[insert_place:]
+                slp_path = np.concatenate((slp_path_a,a_path))
+                slp_path = np.concatenate((slp_path,slp_path_b)) # insert astar path
         self.path = slp_path.tolist()
 
     def PATH_LINEARIZER(self):
