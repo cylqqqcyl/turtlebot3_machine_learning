@@ -65,7 +65,7 @@ class Combination():
                         delta_y = delta_y
                     else:
                         pass
-                    obstacle_1.pose.position.y += delta_x
+                    obstacle_1.pose.position.y += delta_y
                     self.pub_model.publish(obstacle_1)
                     time.sleep(0.1)
                 else:
