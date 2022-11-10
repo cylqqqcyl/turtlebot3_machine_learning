@@ -25,8 +25,8 @@ import pandas as pd
 import numpy as np
 dirPath = os.path.dirname(os.path.realpath(__file__))
 trajPath = dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/trajectory/')
-x_obs = set('obstacle_x1','obstacle_x2','obstacle_x3')
-y_obs = set('obstacle_y1','obstacle_y2','obstacle_y3')
+x_obs = {'obstacle_x1', 'obstacle_x2', 'obstacle_x3'}
+y_obs = {'obstacle_y1', 'obstacle_y2', 'obstacle_y3'}
 class Combination():
     def __init__(self):
         self.pub_model = rospy.Publisher('gazebo/set_model_state', ModelState, queue_size=1)
@@ -65,7 +65,7 @@ class Combination():
                         delta_y = delta_y
                     else:
                         pass
-
+                    obstacle_1.pose.position.y += delta_x
                     self.pub_model.publish(obstacle_1)
                     time.sleep(0.1)
                 else:
