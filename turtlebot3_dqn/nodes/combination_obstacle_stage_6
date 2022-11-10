@@ -41,7 +41,7 @@ class Combination():
                     obstacle_1 = ModelState()
                     obstacle_1.model_name = model.name[i]
                     obstacle_1.pose = model.pose[i]
-                    delta_x = 0.005
+                    delta_x = 0.02
                     if abs(obstacle_1.pose.position.x - 7) < 0.05:
                         delta_x = - delta_x
 
@@ -57,7 +57,7 @@ class Combination():
                     obstacle_1 = ModelState()
                     obstacle_1.model_name = model.name[i]
                     obstacle_1.pose = model.pose[i]
-                    delta_y = 0.005
+                    delta_y = 0.02
                     if abs(obstacle_1.pose.position.y - 6.5) < 0.05:
                         delta_y = - delta_y
 
