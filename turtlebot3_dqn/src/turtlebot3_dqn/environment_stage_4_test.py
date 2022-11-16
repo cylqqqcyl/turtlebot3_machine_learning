@@ -179,6 +179,8 @@ class TestEnv():
         if self.initGoal:
             self.goal_x, self.goal_y = self.respawn_goal.getPosition()
             self.initGoal = False
+        else:
+            self.goal_x, self.goal_y = self.respawn_goal.getPosition(True,delete=True)  # respawn to avoid repeat fails
 
         self.goal_distance = self.getGoalDistace()
         state, done = self.getState(data)

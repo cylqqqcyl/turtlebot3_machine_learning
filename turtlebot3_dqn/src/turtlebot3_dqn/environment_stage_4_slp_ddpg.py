@@ -480,8 +480,8 @@ class SLP:
 
 # ------------------------------   ros路径规划配置   ---------------------------
 # 这个需要根据自己的地图而定
-pixwidth = 2.425  # 10.2
-pixheight = 2.425  # 4.6
+pixwidth = 10  # 10.2
+pixheight = 10  # 4.6
 
 
 # 将最慢算法的加速一下
@@ -536,12 +536,12 @@ class pathPlanning():
         # 将数据处理成一个矩阵（未知：-1，可通行：0，不可通行：1）
         self.doMap()
         # obsize是膨胀系数，是按照矩阵的距离，而不是真实距离，所以要进行一个换算
-        self.obsize = 7  # 15太大了
+        self.obsize = 1  # 15太大了
         print("现在进行地图膨胀")
         ob_time = time.time()
         _obstacleMap(self.map, self.obsize)
         print("膨胀地图所用时间是:{:.3f}".format(time.time() - ob_time))
-        self.map_resize()
+        # self.map_resize()
         obs_map = getObsMap(self.map)
         # 获取初始位置self.init_x,self.init_y
         self.getIniPose()
@@ -568,7 +568,7 @@ class pathPlanning():
         # 算法生成
         s_time = time.time()
         self.map2d = MapMatrix(self.map)
-        # 创建AStar对象,并设置起点终点
+        # 创建SLP对象,并设置起点终点
         slp = SLP(self.map2d, obs_map,(self.start_point[1],self.start_point[0]),
                   (self.final_point[1],self.final_point[0]))
         # 开始寻路
@@ -628,6 +628,7 @@ class pathPlanning():
 
         # 将地图中的障碍变成从100变成1
         self.map[self.map == 100] = 1
+        self.map[self.map == -1] = 0
         # 列是逆序的，所以要将列顺序
         self.map = self.map[:, ::-1]
 
@@ -812,7 +813,7 @@ class TestEnv():
             self.subgoal_index = 0
             self.get_goalbox = False
 
-        if self.get_subgoal:
+        if self.get_subgoal and self.subgoal_index != self.global_map.shape[0]-1:
             rospy.loginfo("Reached sub-Goal Point")
             self.pub_cmd_vel.publish(Twist())
             self.subgoal_index += 1
@@ -936,6 +937,8 @@ class TestEnv():
         if self.initGoal:
             self.goal_x, self.goal_y = self.respawn_goal.getPosition()
             self.initGoal = False
+        else:
+            self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)  # respawn to avoid repeat fails
         print('pausing physics!')
         self.pause_proxy()
         self.generateSubGoals()
