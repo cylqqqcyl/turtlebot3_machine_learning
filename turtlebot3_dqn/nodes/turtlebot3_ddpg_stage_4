@@ -77,9 +77,9 @@ LOAD = False  # load model
 render_interval = 100  # after render_interval, the env.render() will work
 EXPLORATION_NOISE = 0.1
 # MAX_EPISODES = 3000  # num of games
-MAX_EPISODES = 3  # num of games
+MAX_EPISODES = 3000  # num of games
 UPDATE_ITERATION = 200
-LOAD_EPISODE = 2950
+LOAD_EPISODE = 1500
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # env = gym.make(args.env_name)
@@ -360,8 +360,11 @@ if __name__ == '__main__':
             result.data = [total_reward, reward]
             pub_result.publish(result)
         rewards = np.array(rewards)
-        df_rewards = pd.DataFrame({'episode':range(MAX_EPISODES),'reward':rewards})
         file_name = trajPath + "robot_rewards_ddpg.csv"
+        if LOAD:
+            df = pd.read_csv(file_name)
+            rewards = np.concatenate((df['rewards'].values, rewards))
+        df_rewards = pd.DataFrame({'episode': range(MAX_EPISODES), 'reward': rewards})
         print("saving rewards data to {}".format(file_name))
         df_rewards.to_csv(file_name)
     else:
