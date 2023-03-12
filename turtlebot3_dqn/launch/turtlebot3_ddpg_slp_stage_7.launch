@@ -1,12 +1,10 @@
 <launch>
   <arg name="stage" default="6"/>
   <param name="stage_number"  value="$(arg stage)"/>
-  <node pkg="turtlebot3_dqn" type="turtlebot3_ddpg_astar_stage_4" name="turtlebot3_ddpg_astar_stage_4" output="screen" />
+  <node pkg="turtlebot3_dqn" type="turtlebot3_ddpg_slp_stage_4" name="turtlebot3_ddpg_slp_stage_4" output="screen" />
 
   <node pkg="turtlebot3_dqn" type="stage_6_obstacle_x1" name="stage_6_obstacle_x1" output="screen" />
   <node pkg="turtlebot3_dqn" type="stage_6_obstacle_x2" name="stage_6_obstacle_x2" output="screen" />
   <node pkg="turtlebot3_dqn" type="stage_6_obstacle_x3" name="stage_6_obstacle_x3" output="screen" />
-  <node pkg="turtlebot3_dqn" type="stage_6_obstacle_y1" name="stage_6_obstacle_y1" output="screen" />
-  <node pkg="turtlebot3_dqn" type="stage_6_obstacle_y2" name="stage_6_obstacle_y2" output="screen" />
   <node pkg="turtlebot3_dqn" type="stage_6_obstacle_y3" name="stage_6_obstacle_y3" output="screen" />
 </launch>

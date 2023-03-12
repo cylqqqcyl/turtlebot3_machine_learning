@@ -1,7 +1,7 @@
 <launch>
   <arg name="stage" default="6"/>
   <param name="stage_number"  value="$(arg stage)"/>
-  <node pkg="turtlebot3_dqn" type="turtlebot3_ddpg_astar_stage_4" name="turtlebot3_ddpg_astar_stage_4" output="screen" />
+  <node pkg="turtlebot3_dqn" type="turtlebot3_ddpg_stage_4" name="turtlebot3_ddpg_stage_4" output="screen" />
 
   <node pkg="turtlebot3_dqn" type="stage_6_obstacle_x1" name="stage_6_obstacle_x1" output="screen" />
   <node pkg="turtlebot3_dqn" type="stage_6_obstacle_x2" name="stage_6_obstacle_x2" output="screen" />
