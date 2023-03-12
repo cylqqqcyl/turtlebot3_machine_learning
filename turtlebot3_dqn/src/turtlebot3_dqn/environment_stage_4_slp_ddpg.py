@@ -49,8 +49,8 @@ class MapMatrix:
     """
 
     def __init__(self, map):
-        self.w = map.shape[0]
-        self.h = map.shape[1]
+        self.w = map.shape[1]
+        self.h = map.shape[0]
         self.data = map
 
     def showArrayD(self):
@@ -159,7 +159,7 @@ class AStar:
         if minF.point.x + offsetX < 0 or minF.point.x + offsetX > self.map2d.w - 1 or minF.point.y + offsetY < 0 or minF.point.y + offsetY > self.map2d.h - 1:
             return
         # 如果是障碍，就忽略
-        if self.map2d[minF.point.x + offsetX][minF.point.y + offsetY] != self.passTag:
+        if self.map2d[minF.point.y + offsetY][minF.point.x + offsetX] != self.passTag:
             return
         # 如果在关闭表中，就忽略
         currentPoint = Point(minF.point.x + offsetX, minF.point.y + offsetY)
@@ -188,7 +188,7 @@ class AStar:
         :return: None或Point列表（路径）
         """
         # 判断寻路终点是否是障碍
-        if self.map2d[self.endPoint.x][self.endPoint.y] != self.passTag:
+        if self.map2d[self.endPoint.y][self.endPoint.x] != self.passTag:
             return None
 
         # 1.将起点放入开启列表
@@ -224,8 +224,6 @@ class AStar:
                         return list(reversed(pathList))
             if len(self.openList) == 0:
                 return None
-
-# ------------------------    SLP     --------------------------
 class SLP:
     """SLP is a hybrid path planning algorithm
     """
@@ -238,9 +236,6 @@ class SLP:
 
 
         self.reverse = False
-        self.OPEN = []  # priority queue / OPEN set
-        self.CLOSED = []  # CLOSED set / VISITED order
-        self.PARENT = dict()  # recorded parent
         self.g = dict()  # cost to come
         self.astar_sg = [] # astar start and goal ele:[start,goal]
 
@@ -257,8 +252,8 @@ class SLP:
         :return: path, intersection_points
         """
         path = [(self.s_start[1],self.s_start[0])]
-        inter = []
         astar_sg = []
+        in_obstacle = False
         # exclude vertical line case
         if self.s_start[0] - self.s_goal[0] != 0:
             self.line_slope = float(self.s_start[1] - self.s_goal[1]) / (self.s_start[0] - self.s_goal[0]) # float division
@@ -273,35 +268,16 @@ class SLP:
                 path_dx += dx_delta
                 point = (self.s_start[0] + path_dx, round(self.s_start[1] + self.line_slope * path_dx))
                 if point in self.obs:
-                    inter.append(point)
-                    astar_sg.append(
-                        [(self.s_start[0] + path_dx - dx_delta, round(self.s_start[1] + self.line_slope * (path_dx - dx_delta))),
-                         (self.s_start[0] + path_dx + dx_delta, round(self.s_start[1] + self.line_slope * (path_dx + dx_delta)))])
+                    if not in_obstacle:
+                        in_obstacle = True
+                        a_start = (self.s_start[0] + path_dx - dx_delta, round(self.s_start[1] + self.line_slope * (path_dx - dx_delta)))
                 else:
+                    if in_obstacle:
+                        a_end = point
+                        in_obstacle = False
+                        astar_sg.append([a_start, a_end])
                     path.append((point[1],point[0]))
             # intersection point processing:
-            a_start = 0
-            a_end = 0
-            for i in range(len(inter) - 1):
-
-                if abs(inter[i][0] - inter[i + 1][0]) == 1:
-                    pass
-                else:
-                    a_end = i
-                    if astar_sg[a_start][1][0] > astar_sg[a_end][0][0]:
-                        a_end = a_start
-                        a_start = i
-                    self.astar_sg.append([(int(astar_sg[a_start][0][0]),int(astar_sg[a_start][0][1])), (int(astar_sg[a_end][1][0]),int(astar_sg[a_end][1][1]))])
-                    a_start = i + 1
-                a_end = i + 1
-            if len(astar_sg)>0:
-                    if astar_sg[a_start][1][0] > astar_sg[a_end][0][0]:
-                        tmp = a_end
-                        a_end = a_start
-                        a_start = tmp
-                    else:
-                        pass
-                    self.astar_sg.append([(int(astar_sg[a_start][0][0]),int(astar_sg[a_start][0][1])), (int(astar_sg[a_end][1][0]),int(astar_sg[a_end][1][1]))])
 
 
 
@@ -316,36 +292,16 @@ class SLP:
                 path_dy += dy_delta
                 point = (self.s_start[0], self.s_start[1] + path_dy)
                 if point in self.obs:
-                    inter.append(point)
-                    astar_sg.append(
-                        [(self.s_start[0],self.s_start[1] + path_dy - dy_delta ),
-                         (self.s_start[0],self.s_start[1] + path_dy + dy_delta )])
+                    if not in_obstacle:
+                        a_start = (self.s_start[0], self.s_start[1] + path_dy - dy_delta)
+
                 else:
+                    if in_obstacle:
+                        a_end = point
+                        in_obstacle = False
+                        astar_sg.append([a_start, a_end])
                     path.append((point[1],point[0]))
-
-            a_start = 0
-            a_end = 0
-            for i in range(len(inter) - 1):
-                if abs(inter[i][1] - inter[i + 1][1]) == 1:
-                    pass
-                else:
-                    a_end = i
-                    if astar_sg[a_start][1][1] > astar_sg[a_end][0][1]:
-                        a_end = a_start
-                        a_start = i
-                    self.astar_sg.append([(int(astar_sg[a_start][0][0]),int(astar_sg[a_start][0][1])), (int(astar_sg[a_end][1][0]),int(astar_sg[a_end][1][1]))])
-                    a_start = i + 1
-                a_end = i + 1
-            if len(astar_sg)>0:
-                if astar_sg[a_start][1][1] > astar_sg[a_end][0][1]:
-                    tmp = a_end
-                    a_end = a_start
-                    a_start = tmp
-                self.astar_sg.append([(int(astar_sg[a_start][0][0]), int(astar_sg[a_start][0][1])),
-                                  (int(astar_sg[a_end][1][0]), int(astar_sg[a_end][1][1]))])
-            # print(self.astar_sg)
-        path.append((self.s_goal[1],self.s_goal[0]))
-
+        self.astar_sg = astar_sg
         self.path = path
 
     def BASIS_ALGORITHM_PLANNER(self):
@@ -357,7 +313,10 @@ class SLP:
             # print sg
             astar = AStar(self.map2d,Point(int(sg[0][0]),int(sg[0][1])), Point(int(sg[1][0]),int(sg[1][1])))
             a_path = astar.start()
-            a_path = np.array(a_path).reshape(len(a_path),2)
+            try:
+                a_path = np.array(a_path).reshape(len(a_path),2)
+            except Exception:
+                continue
 
 
             # a_path = a_path[::-1,:] # reverse and remove start and goal
@@ -478,10 +437,8 @@ class SLP:
                     return True
         return False
 
-# ------------------------------   ros路径规划配置   ---------------------------
-# 这个需要根据自己的地图而定
-pixwidth = 10  # 10.2
-pixheight = 10  # 4.6
+pixwidth = -10
+pixheight = -10
 
 
 # 将最慢算法的加速一下
@@ -506,7 +463,7 @@ def _obstacleMap(map, obsize):
 def getObsMap(map):
     obs_map = set()
     indexList = np.where(map == 1)
-    for ox, oy in zip(indexList[0], indexList[1]):
+    for oy, ox in zip(indexList[0], indexList[1]):
         obs_map.add((ox,oy))
     return obs_map
 
@@ -680,16 +637,16 @@ class pathPlanning():
     def pubSLPPath(self):
          world_path = []
          for i in range(len(self.pathList)):
-            world_path_x = pixwidth - self.pathList[i][0] * self.resolution
-            world_path_y = self.pathList[i][1] * self.resolution - pixheight
+            world_path_x = self.pathList[i][0] * self.resolution + pixwidth
+            world_path_y = self.pathList[i][1] * self.resolution + pixheight
             world_path.append([world_path_x,world_path_y])
          return world_path
 
     def worldToMap(self, x, y):
         # 将rviz地图坐标转换为栅格坐标
         # 这里10.2和-4.6需要自动添加，目前不知道怎么添加
-        mx = (int)((pixwidth - x) / self.resolution)
-        my = (int)(-(-pixheight - y) / self.resolution)
+        mx = (int)(-(pixwidth - x) / self.resolution)
+        my = (int)(-(pixheight - y) / self.resolution)
         return [mx, my]
 
 

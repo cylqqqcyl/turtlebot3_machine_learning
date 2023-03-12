@@ -51,8 +51,8 @@ class MapMatrix:
     """
 
     def __init__(self, map):
-        self.w = map.shape[0]
-        self.h = map.shape[1]
+        self.w = map.shape[1]
+        self.h = map.shape[0]
         self.data = map
 
     def showArrayD(self):
@@ -71,7 +71,7 @@ class Point:
     """
 
     def __init__(self, x, y):
-        self.x = x;
+        self.x = x
         self.y = y
 
     def __eq__(self, other):
@@ -161,7 +161,7 @@ class AStar:
         if minF.point.x + offsetX < 0 or minF.point.x + offsetX > self.map2d.w - 1 or minF.point.y + offsetY < 0 or minF.point.y + offsetY > self.map2d.h - 1:
             return
         # 如果是障碍，就忽略
-        if self.map2d[minF.point.x + offsetX][minF.point.y + offsetY] != self.passTag:
+        if self.map2d[minF.point.y + offsetY][minF.point.x + offsetX] != self.passTag:
             return
         # 如果在关闭表中，就忽略
         currentPoint = Point(minF.point.x + offsetX, minF.point.y + offsetY)
@@ -190,7 +190,7 @@ class AStar:
         :return: None或Point列表（路径）
         """
         # 判断寻路终点是否是障碍
-        if self.map2d[self.endPoint.x][self.endPoint.y] != self.passTag:
+        if self.map2d[self.endPoint.y][self.endPoint.x] != self.passTag:
             return None
 
         # 1.将起点放入开启列表
@@ -227,11 +227,10 @@ class AStar:
             if len(self.openList) == 0:
                 return None
 
-
 # ------------------------------   ros路径规划配置   ---------------------------
 # 这个需要根据自己的地图而定
-pixwidth = 10  # 10.2
-pixheight = 10  # 4.6
+pixwidth = -10  # 10.2
+pixheight = -10  # 4.6
 
 
 # 将最慢算法的加速一下
@@ -400,19 +399,17 @@ class pathPlanning():
     def pubAstarPath(self):
         world_path = []
         for i in range(len(self.pathList)):
-            world_path_x = pixwidth - self.pathList[i][0] * self.resolution
-            world_path_y = self.pathList[i][1] * self.resolution - pixheight
+            world_path_x = self.pathList[i][1] * self.resolution + pixwidth
+            world_path_y = self.pathList[i][0] * self.resolution + pixheight
             world_path.append([world_path_x,world_path_y])
         return world_path
-
 
     def worldToMap(self, x, y):
         # 将rviz地图坐标转换为栅格坐标
         # 这里10.2和-4.6需要自动添加，目前不知道怎么添加
-        mx = (int)((pixwidth - x) / self.resolution)
-        my = (int)(-(-pixheight - y) / self.resolution)
+        mx = (int)(-(pixwidth - x) / self.resolution)
+        my = (int)(-(pixheight - y) / self.resolution)
         return [mx, my]
-
 
 # ------------------------------       ---------------------------
 class TestEnv():
