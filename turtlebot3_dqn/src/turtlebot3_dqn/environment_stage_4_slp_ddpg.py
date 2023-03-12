@@ -38,6 +38,10 @@ from numba import jit
 import matplotlib.pyplot as plt
 from nav_msgs.msg import OccupancyGrid
 from scipy import stats
+
+dirPath = os.path.dirname(os.path.realpath(__file__))
+dirPath = dirPath.replace('turtlebot3_dqn/src/turtlebot3_dqn', 'turtlebot3_dqn/map/')
+
 # ------------------------------   slp   ---------------------------
 class MapMatrix:
     """
@@ -491,14 +495,34 @@ class pathPlanning():
         # rospy.init_node("SLP_global_path_planning", anonymous=True)
         self.reward = 0
         # 将数据处理成一个矩阵（未知：-1，可通行：0，不可通行：1）
-        self.doMap()
-        # obsize是膨胀系数，是按照矩阵的距离，而不是真实距离，所以要进行一个换算
-        self.obsize = 1  # 15太大了
-        print("现在进行地图膨胀")
-        ob_time = time.time()
-        _obstacleMap(self.map, self.obsize)
-        print("膨胀地图所用时间是:{:.3f}".format(time.time() - ob_time))
-        # self.map_resize()
+        try:
+            self.map = np.load(dirPath+'map_l.npy')
+            print('load map')
+            # 获取地图数据
+            self.OGmap = rospy.wait_for_message("/map", OccupancyGrid, timeout=None)
+            # 地图的宽度
+            self.width = self.OGmap.info.width
+            # 地图的高度
+            self.height = self.OGmap.info.height
+            # 地图的分辨率
+            self.resolution = self.OGmap.info.resolution
+        except Exception as e:
+            print('no map found')
+            self.doMap()
+            # self.map_resize()
+            # obsize是膨胀系数，是按照矩阵的距离，而不是真实距离，所以要进行一个换算
+        try:
+            self.map = np.load(dirPath+'map_ob_l.npy')
+            print('load padded map')
+        except Exception:
+            print('no padded map found')
+            self.obsize = 1  # 15太大了
+            print("现在进行地图膨胀")
+            ob_time = time.time()
+            _obstacleMap(self.map, self.obsize)
+            print("膨胀地图所用时间是:{:.3f}".format(time.time() - ob_time))
+            np.save(dirPath+ 'map_ob_l.npy', self.map)
+
         obs_map = getObsMap(self.map)
         # 获取初始位置self.init_x,self.init_y
         self.getIniPose()
@@ -506,7 +530,7 @@ class pathPlanning():
         self.getTarPose()
         print("已接收")
 
-        print(self.width,self.height)
+        # print(self.width,self.height)
         print("起始点")
         print(self.init_x,self.init_y)
         # print(self.start_point)
@@ -539,7 +563,7 @@ class pathPlanning():
 
         print("SLP算法所用时间是:{:.3f}".format(time.time() - s_time))
         # path length
-        self.calPathLen()
+        # self.calPathLen()
 
         # 发布Astar算法
         # self.plotSLPPath()
@@ -587,18 +611,27 @@ class pathPlanning():
         self.map[self.map == 100] = 1
         self.map[self.map == -1] = 0
         # 列是逆序的，所以要将列顺序
-        self.map = self.map[:, ::-1]
-
+        # self.map = self.map[:, ::-1]
         # # #查看地图数据存储格式
+
+        print('saving map to {}'.format(dirPath))
+
+        np.save(dirPath + 'map_l.npy', self.map)
         # plt.matshow(self.map, cmap=plt.cm.gray)
         # plt.show()
     def map_resize(self):
         # resize
         indexList = np.where(self.map == 1)  # 将地图矩阵中1的位置找到
-        upper_left = (min(indexList[0]), min(indexList[0]))
+        upper_left = (min(indexList[0]), min(indexList[1]))
         lower_rignt = (max(indexList[0]), max((indexList[1])))
 
         self.map = self.map[upper_left[0]:lower_rignt[0], upper_left[1]:lower_rignt[1]]
+        #
+        # print self.map
+        print('saving map to {}'.format(dirPath))
+
+        np.save(dirPath + 'map_l.npy', self.map)
+        #
         # plt.matshow(self.map, cmap=plt.cm.gray)
         # plt.show()
 

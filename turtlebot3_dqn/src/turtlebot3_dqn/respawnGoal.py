@@ -82,7 +82,7 @@ class Respawn():
         if delete:
             self.deleteModel()
 
-        if self.stage != 4:
+        if self.stage != 4 and self.stage != 6:
             while position_check:
                 goal_x = random.randrange(-12, 13) / 10.0
                 goal_y = random.randrange(-12, 13) / 10.0
@@ -107,10 +107,12 @@ class Respawn():
 
         else:
             while position_check:
-                # goal_x_list = [0.6, 1.9, 0.5, 0.2, -0.8, -1, -1.9, 0.5, 2, 0.5, 0, -0.1, -2]
-                # goal_y_list = [0, -0.5, -1.9, 1.5, -0.9, 1, 1.1, -1.5, 1.5, 1.8, -1, 1.6, -0.8]
-                goal_x_list = [6, -6,-6,6,-6,5.5,4, 4,-3,3,-5,-6,7]  # large environment
-                goal_y_list = [6, -4,6,-4,-6,-6, 3,-2,-3,3,-3, 0,0]
+                if self.stage == 4:
+                    goal_x_list = [0.6, 1.9, 0.5, 0.2, -0.8, -1, -1.9, 0.5, 2, 0.5, 0, -0.1, -2]
+                    goal_y_list = [0, -0.5, -1.9, 1.5, -0.9, 1, 1.1, -1.5, 1.5, 1.8, -1, 1.6, -0.8]
+                else:
+                    goal_x_list = [6, -6,-6,6,-6,5.5,4, 4,-3,3,-5,-6,7]  # large environment
+                    goal_y_list = [6, -4,6,-4,-6,-6, 3,-2,-3,3,-3, 0,0]
 
                 self.index = random.randrange(0, 11)
                 # self.index = -5

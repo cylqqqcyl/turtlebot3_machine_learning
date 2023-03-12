@@ -38,6 +38,8 @@ from numba import jit
 import matplotlib.pyplot as plt
 from nav_msgs.msg import OccupancyGrid
 
+dirPath = os.path.dirname(os.path.realpath(__file__))
+dirPath = dirPath.replace('turtlebot3_dqn/src/turtlebot3_dqn', 'turtlebot3_dqn/map/')
 
 # ------------------------------   astar   ---------------------------
 
@@ -278,11 +280,34 @@ class pathPlanning():
         self.doMap()
         # obsize是膨胀系数，是按照矩阵的距离，而不是真实距离，所以要进行一个换算
         self.obsize = 1  # 15太大了
-        print("现在进行地图膨胀")
-        ob_time = time.time()
-        _obstacleMap(self.map, self.obsize)
-        print("膨胀地图所用时间是:{:.3f}".format(time.time() - ob_time))
-        self.map_resize()
+        try:
+            self.map = np.load(dirPath+'map_l.npy')
+            print('load map')
+            # 获取地图数据
+            self.OGmap = rospy.wait_for_message("/map", OccupancyGrid, timeout=None)
+            # 地图的宽度
+            self.width = self.OGmap.info.width
+            # 地图的高度
+            self.height = self.OGmap.info.height
+            # 地图的分辨率
+            self.resolution = self.OGmap.info.resolution
+        except Exception as e:
+            print('no map found')
+            self.doMap()
+            # self.map_resize()
+            # obsize是膨胀系数，是按照矩阵的距离，而不是真实距离，所以要进行一个换算
+        try:
+            self.map = np.load(dirPath+'map_ob_l.npy')
+            print('load padded map')
+        except Exception:
+            print('no padded map found')
+            self.obsize = 1  # 15太大了
+            print("现在进行地图膨胀")
+            ob_time = time.time()
+            _obstacleMap(self.map, self.obsize)
+            print("膨胀地图所用时间是:{:.3f}".format(time.time() - ob_time))
+            np.save(dirPath+ 'map_ob_l.npy', self.map)
+        # self.map_resize()
         # 获取初始位置self.init_x,self.init_y
         self.getIniPose()
         # 获取终点位置self.tar_x,self.tar_y
