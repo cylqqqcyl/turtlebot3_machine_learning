@@ -550,8 +550,8 @@ class pathPlanning():
         s_time = time.time()
         self.map2d = MapMatrix(self.map)
         # 创建SLP对象,并设置起点终点
-        slp = SLP(self.map2d, obs_map,(self.start_point[1],self.start_point[0]),
-                  (self.final_point[1],self.final_point[0]))
+        slp = SLP(self.map2d, obs_map,(self.start_point[0],self.start_point[1]),
+                  (self.final_point[0],self.final_point[1]))
         # 开始寻路
         self.pathList = slp.path
 
@@ -657,15 +657,6 @@ class pathPlanning():
         plt.matshow(plot_map, cmap=plt.cm.gray)
         plt.show()
 
-    def calPathLen(self):
-        length = 0
-        for i in range(len(self.pathList)-1):
-            world_path_x_1 = pixwidth - self.pathList[i][0] * self.resolution
-            world_path_y_1 = self.pathList[i][1] * self.resolution - pixheight
-            world_path_x_2 = pixwidth - self.pathList[i+1][0] * self.resolution
-            world_path_y_2 = self.pathList[i+1][1] * self.resolution - pixheight
-            length += math.hypot(world_path_x_1-world_path_x_2,world_path_y_1-world_path_y_2)
-        self.pathLength = length
 
     def pubSLPPath(self):
          world_path = []
